@@ -30,6 +30,50 @@ app.MapPost("/api/payments/charge", (PaymentRequest req) =>
     var reference = $"PAY-{Guid.NewGuid():N}".Substring(0, 12).ToUpperInvariant();
     return Results.Ok(new { status = "success", req.Gateway, req.Amount, req.Currency, req.OrderId, reference });
 });
+// existing `products` and `payment` endpoints remain unchanged above…
+
+// in-memory store keyed by TenantId
+var vendors = new Dictionary<string, List<Vendor>>();
+
+// POST /api/vendors/register
+app.MapPost("/api/vendors/register", (HttpContext ctx, VendorDto dto) =>
+{
+    var tenant = GetTenant(ctx);
+    if (!vendors.ContainsKey(tenant))
+        vendors[tenant] = new List<Vendor>();
+
+    var v = new Vendor
+    {
+        Id = Guid.NewGuid(),
+        TenantId = tenant,
+        LegalName = dto.LegalName,
+        ContactEmail = dto.ContactEmail,
+        Verified = false
+    };
+    vendors[tenant].Add(v);
+    return Results.Created($"/api/vendors/{v.Id}", v);
+});
+
+// GET /api/vendors
+app.MapGet("/api/vendors", (HttpContext ctx) =>
+{
+    var tenant = GetTenant(ctx);
+    vendors.TryGetValue(tenant, out var vendorList);
+    return Results.Ok(vendorList ?? new List<Vendor>());
+});
+
+// DTO used for vendor creation
+record VendorDto(string LegalName, string ContactEmail);
+
+// Vendor record
+record Vendor
+{
+    public Guid Id { get; init; }
+    public string TenantId { get; init; } = default!;
+    public string LegalName { get; init; } = default!;
+    public string ContactEmail { get; init; } = default!;
+    public bool Verified { get; init; }
+}
 
 app.Run();
 

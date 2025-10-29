@@ -448,11 +448,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\oracle.admin\\Desktop\\Repository\\E-Store\\EstorePoC\\EStore.Api\\EStore.Api.csproj",
+      "projectUniqueName": "C:\\Users\\oracle.admin\\Desktop\\Repository\\store\\EstorePoC\\EStore.Api\\EStore.Api.csproj",
       "projectName": "EStore.Api",
-      "projectPath": "C:\\Users\\oracle.admin\\Desktop\\Repository\\E-Store\\EstorePoC\\EStore.Api\\EStore.Api.csproj",
+      "projectPath": "C:\\Users\\oracle.admin\\Desktop\\Repository\\store\\EstorePoC\\EStore.Api\\EStore.Api.csproj",
       "packagesPath": "C:\\Users\\oracle.admin\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\oracle.admin\\Desktop\\Repository\\E-Store\\EstorePoC\\EStore.Api\\obj\\",
+      "outputPath": "C:\\Users\\oracle.admin\\Desktop\\Repository\\store\\EstorePoC\\EStore.Api\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
