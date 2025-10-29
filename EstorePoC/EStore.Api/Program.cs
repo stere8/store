@@ -1,90 +1,119 @@
-using System.Text.Json.Serialization;
+using EStore.Api.Data;
+using EStore.Api.Models;
+using EStore.Api.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Services
+builder.Services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase("estore"));
+builder.Services.AddCors(o => o.AddPolicy("any", p => p
+    .AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddCors(o => o.AddPolicy("any", p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
+// Payment strategy
+builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>(); // uses mock gateways
+
 var app = builder.Build();
 
+// Middleware
 app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-var products = new List<Product> {
-    new() { Id = Guid.NewGuid(), TenantId="mall-a", VendorId=Guid.NewGuid(), Name="T-Shirt", Description="Cotton tee", Price=49.99m, Stock=120 },
-    new() { Id = Guid.NewGuid(), TenantId="mall-a", VendorId=Guid.NewGuid(), Name="Sneakers", Description="Running shoes", Price=299.00m, Stock=35  },
-    new() { Id = Guid.NewGuid(), TenantId="mall-b", VendorId=Guid.NewGuid(), Name="Cap",     Description="Blue cap",    Price=39.99m, Stock=50  },
-};
-string GetTenant(HttpContext ctx) =>
-    ctx.Request.Headers.TryGetValue("X-Tenant", out var h) ? h.ToString()
-    : (ctx.Request.Query.TryGetValue("tenant", out var q) ? q.ToString() : "mall-a");
+// Simple multi-tenant extractor (header or query; default mall-a)
+app.Use(async (ctx, next) =>
+{
+    var tid = ctx.Request.Headers["X-Tenant"].FirstOrDefault()
+              ?? ctx.Request.Query["tenant"].FirstOrDefault()
+              ?? "mall-a";
+    ctx.Items["TenantId"] = tid;
+    await next();
+});
 
+// Health
 app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTime.UtcNow }));
-app.MapGet("/api/products", (HttpContext ctx) =>
-{
-    var t = GetTenant(ctx);
-    return Results.Ok(products.Where(p => p.TenantId == t).ToList());
-});
-app.MapPost("/api/payments/charge", (PaymentRequest req) =>
-{
-    var reference = $"PAY-{Guid.NewGuid():N}".Substring(0, 12).ToUpperInvariant();
-    return Results.Ok(new { status = "success", req.Gateway, req.Amount, req.Currency, req.OrderId, reference });
-});
-// existing `products` and `payment` endpoints remain unchanged above…
 
-// in-memory store keyed by TenantId
-var vendors = new Dictionary<string, List<Vendor>>();
-
-// POST /api/vendors/register
-app.MapPost("/api/vendors/register", (HttpContext ctx, VendorDto dto) =>
+// ---------------- Vendors ----------------
+app.MapPost("/api/vendors/register", async (AppDbContext db, HttpContext http, VendorDto dto) =>
 {
-    var tenant = GetTenant(ctx);
-    if (!vendors.ContainsKey(tenant))
-        vendors[tenant] = new List<Vendor>();
-
+    var tenant = (string)http.Items["TenantId"]!;
     var v = new Vendor
     {
         Id = Guid.NewGuid(),
         TenantId = tenant,
-        LegalName = dto.LegalName,
-        ContactEmail = dto.ContactEmail,
-        Verified = false
+        LegalName = dto.LegalName.Trim(),
+        ContactEmail = dto.ContactEmail.Trim(),
+        Verified = false,
+        CreatedAt = DateTime.UtcNow
     };
-    vendors[tenant].Add(v);
+    db.Vendors.Add(v);
+    await db.SaveChangesAsync();
     return Results.Created($"/api/vendors/{v.Id}", v);
 });
 
-// GET /api/vendors
-app.MapGet("/api/vendors", (HttpContext ctx) =>
+app.MapGet("/api/vendors", async (AppDbContext db, HttpContext http) =>
 {
-    var tenant = GetTenant(ctx);
-    vendors.TryGetValue(tenant, out var vendorList);
-    return Results.Ok(vendorList ?? new List<Vendor>());
+    var tenant = (string)http.Items["TenantId"]!;
+    var list = await db.Vendors.Where(x => x.TenantId == tenant).OrderByDescending(x => x.CreatedAt).ToListAsync();
+    return Results.Ok(list);
 });
 
-// DTO used for vendor creation
-record VendorDto(string LegalName, string ContactEmail);
-
-// Vendor record
-record Vendor
+// ---------------- Products ----------------
+app.MapGet("/api/products", async (AppDbContext db, HttpContext http) =>
 {
-    public Guid Id { get; init; }
-    public string TenantId { get; init; } = default!;
-    public string LegalName { get; init; } = default!;
-    public string ContactEmail { get; init; } = default!;
-    public bool Verified { get; init; }
-}
+    var tenant = (string)http.Items["TenantId"]!;
+    var list = await db.Products
+        .Where(p => p.TenantId == tenant && p.Active)
+        .OrderBy(p => p.Name)
+        .ToListAsync();
+    return Results.Ok(list);
+});
+
+app.MapPost("/api/products", async (AppDbContext db, HttpContext http, ProductCreateDto dto) =>
+{
+    var tenant = (string)http.Items["TenantId"]!;
+    if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
+        return Results.BadRequest(new { error = "Invalid product payload." });
+
+    var existsVendor = await db.Vendors.AnyAsync(v => v.TenantId == tenant && v.Id == dto.VendorId);
+    if (!existsVendor)
+        return Results.BadRequest(new { error = "Vendor not found in tenant." });
+
+    var p = new Product
+    {
+        Id = Guid.NewGuid(),
+        TenantId = tenant,
+        VendorId = dto.VendorId,
+        Name = dto.Name.Trim(),
+        Description = dto.Description?.Trim(),
+        Price = dto.Price,
+        Stock = dto.Stock,
+        ImageUrl = dto.ImageUrl,
+        Active = true,
+        CreatedAt = DateTime.UtcNow
+    };
+    db.Products.Add(p);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/products/{p.Id}", p);
+});
+
+// ---------------- Payments (mock gateways) ----------------
+app.MapPost("/api/payments/charge", async (HttpContext http, IPaymentGatewayFactory factory, PaymentRequest req) =>
+{
+    if (req.Amount <= 0 || string.IsNullOrWhiteSpace(req.Currency) || string.IsNullOrWhiteSpace(req.OrderId))
+        return Results.BadRequest(new { error = "Invalid payment request." });
+
+    var tenant = (string)http.Items["TenantId"]!;
+    var gw = factory.Create(req.Gateway);       // "stripe" | "mtn" | "airtel"
+    var result = await gw.ChargeAsync(tenant, req);
+    return Results.Ok(result);
+});
 
 app.Run();
 
-record Product {
-    public Guid Id { get; set; }
-    public string TenantId { get; set; } = default!;
-    public Guid VendorId { get; set; }
-    public string Name { get; set; } = default!;
-    public string? Description { get; set; }
-    public decimal Price { get; set; }
-    public int Stock { get; set; }
-    public string? ImageUrl { get; set; }
-}
-record PaymentRequest(string Gateway, decimal Amount, string Currency, string OrderId);
+// DTOs
+public record VendorDto(string LegalName, string ContactEmail);
+public record ProductCreateDto(Guid VendorId, string Name, string? Description, decimal Price, int Stock, string? ImageUrl);
+public record PaymentRequest(string Gateway, decimal Amount, string Currency, string OrderId);
