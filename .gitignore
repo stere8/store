@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+.env*
+api-admin/.env
+front-store/.env
+EstorePoC/**/bin/
+EstorePoC/**/obj/
+.vscode/
+*.user
+Thumbs.db

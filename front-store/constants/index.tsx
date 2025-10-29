@@ -1,0 +1,431 @@
+export const popularsProducts = [
+  {
+    _id: "sdsudsdsdsisds",
+    name: "Amazon Basics High-Speed Headset (18 Gbps, 4K/6...",
+    images: [
+      "https://res.cloudinary.com/didbxg1f9/image/upload/v1728542822/images/ewkd9fagvbc6k4lb9nlr.png",
+    ],
+    price: 300,
+  },
+  {
+    _id: "sdsudisdssds",
+    name: "Samsung Electronics Samsung Galexy S21 5G",
+    images: [
+      "https://res.cloudinary.com/didbxg1f9/image/upload/v1728542871/images/nezuqsgznfhfwbbftdqg.png",
+    ],
+    price: 300,
+  },
+  {
+    _id: "sdssdsdsdudisds",
+    name: "Amazon Basics High-Speed Headset (18 Gbps, 4K/6...",
+    images: [
+      "https://res.cloudinary.com/didbxg1f9/image/upload/v1728542822/images/ewkd9fagvbc6k4lb9nlr.png",
+    ],
+    price: 300,
+  },
+  {
+    _id: "sdssdsdsdudisds",
+    name: "Amazon Basics High-Speed Headset (18 Gbps, 4K/6...",
+    images: [
+      "https://res.cloudinary.com/didbxg1f9/image/upload/v1728542822/images/ewkd9fagvbc6k4lb9nlr.png",
+    ],
+    price: 300,
+  },
+];
+
+export const countries = [
+  { name: "Afghanistan" },
+  { name: "Albania" },
+  { name: "Algeria" },
+  { name: "Andorra" },
+  { name: "Angola" },
+  { name: "Antigua and Barbuda" },
+  { name: "Argentina" },
+  { name: "Armenia" },
+  { name: "Australia" },
+  { name: "Austria" },
+  { name: "Azerbaijan" },
+  { name: "Bahamas" },
+  { name: "Bahrain" },
+  { name: "Bangladesh" },
+  { name: "Barbados" },
+  { name: "Belarus" },
+  { name: "Belgium" },
+  { name: "Belize" },
+  { name: "Benin" },
+  { name: "Bhutan" },
+  { name: "Bolivia" },
+  { name: "Bosnia and Herzegovina" },
+  { name: "Botswana" },
+  { name: "Brazil" },
+  { name: "Brunei" },
+  { name: "Bulgaria" },
+  { name: "Burkina Faso" },
+  { name: "Burundi" },
+  { name: "Cabo Verde" },
+  { name: "Cambodia" },
+  { name: "Cameroon" },
+  { name: "Canada" },
+  { name: "Central African Republic" },
+  { name: "Chad" },
+  { name: "Chile" },
+  { name: "China" },
+  { name: "Colombia" },
+  { name: "Comoros" },
+  { name: "Congo" },
+  { name: "Congo (Democratic Republic)" },
+  { name: "Costa Rica" },
+  { name: "Cote d'Ivoire" },
+  { name: "Croatia" },
+  { name: "Cuba" },
+  { name: "Cyprus" },
+  { name: "Czechia" },
+  { name: "Denmark" },
+  { name: "Djibouti" },
+  { name: "Dominica" },
+  { name: "Dominican Republic" },
+  { name: "Ecuador" },
+  { name: "Egypt" },
+  { name: "El Salvador" },
+  { name: "Equatorial Guinea" },
+  { name: "Eritrea" },
+  { name: "Estonia" },
+  { name: "Eswatini" },
+  { name: "Ethiopia" },
+  { name: "Fiji" },
+  { name: "Finland" },
+  { name: "France" },
+  { name: "Gabon" },
+  { name: "Gambia" },
+  { name: "Georgia" },
+  { name: "Germany" },
+  { name: "Ghana" },
+  { name: "Greece" },
+  { name: "Grenada" },
+  { name: "Guatemala" },
+  { name: "Guinea" },
+  { name: "Guinea-Bissau" },
+  { name: "Guyana" },
+  { name: "Haiti" },
+  { name: "Honduras" },
+  { name: "Hungary" },
+  { name: "Iceland" },
+  { name: "India" },
+  { name: "Indonesia" },
+  { name: "Iran" },
+  { name: "Iraq" },
+  { name: "Ireland" },
+  { name: "Israel" },
+  { name: "Italy" },
+  { name: "Jamaica" },
+  { name: "Japan" },
+  { name: "Jordan" },
+  { name: "Kazakhstan" },
+  { name: "Kenya" },
+  { name: "Kiribati" },
+  { name: "Korea, North" },
+  { name: "Korea, South" },
+  { name: "Kosovo" },
+  { name: "Kuwait" },
+  { name: "Kyrgyzstan" },
+  { name: "Laos" },
+  { name: "Latvia" },
+  { name: "Lebanon" },
+  { name: "Lesotho" },
+  { name: "Liberia" },
+  { name: "Libya" },
+  { name: "Liechtenstein" },
+  { name: "Lithuania" },
+  { name: "Luxembourg" },
+  { name: "Madagascar" },
+  { name: "Malawi" },
+  { name: "Malaysia" },
+  { name: "Maldives" },
+  { name: "Mali" },
+  { name: "Malta" },
+  { name: "Marshall Islands" },
+  { name: "Mauritania" },
+  { name: "Mauritius" },
+  { name: "Mexico" },
+  { name: "Micronesia" },
+  { name: "Moldova" },
+  { name: "Monaco" },
+  { name: "Mongolia" },
+  { name: "Montenegro" },
+  { name: "Morocco" },
+  { name: "Mozambique" },
+  { name: "Myanmar" },
+  { name: "Namibia" },
+  { name: "Nauru" },
+  { name: "Nepal" },
+  { name: "Netherlands" },
+  { name: "New Zealand" },
+  { name: "Nicaragua" },
+  { name: "Niger" },
+  { name: "Nigeria" },
+  { name: "North Macedonia" },
+  { name: "Norway" },
+  { name: "Oman" },
+  { name: "Pakistan" },
+  { name: "Palau" },
+  { name: "Palestine" },
+  { name: "Panama" },
+  { name: "Papua New Guinea" },
+  { name: "Paraguay" },
+  { name: "Peru" },
+  { name: "Philippines" },
+  { name: "Poland" },
+  { name: "Portugal" },
+  { name: "Qatar" },
+  { name: "Romania" },
+  { name: "Russia" },
+  { name: "Rwanda" },
+  { name: "Saint Kitts and Nevis" },
+  { name: "Saint Lucia" },
+  { name: "Saint Vincent and the Grenadines" },
+  { name: "Samoa" },
+  { name: "San Marino" },
+  { name: "Sao Tome and Principe" },
+  { name: "Saudi Arabia" },
+  { name: "Senegal" },
+  { name: "Serbia" },
+  { name: "Seychelles" },
+  { name: "Sierra Leone" },
+  { name: "Singapore" },
+  { name: "Slovakia" },
+  { name: "Slovenia" },
+  { name: "Solomon Islands" },
+  { name: "Somalia" },
+  { name: "South Africa" },
+  { name: "South Sudan" },
+  { name: "Spain" },
+  { name: "Sri Lanka" },
+  { name: "Sudan" },
+  { name: "Suriname" },
+  { name: "Sweden" },
+  { name: "Switzerland" },
+  { name: "Syria" },
+  { name: "Taiwan" },
+  { name: "Tajikistan" },
+  { name: "Tanzania" },
+  { name: "Thailand" },
+  { name: "Timor-Leste" },
+  { name: "Togo" },
+  { name: "Tonga" },
+  { name: "Trinidad and Tobago" },
+  { name: "Tunisia" },
+  { name: "Turkey" },
+  { name: "Turkmenistan" },
+  { name: "Tuvalu" },
+  { name: "Uganda" },
+  { name: "Ukraine" },
+  { name: "United Arab Emirates" },
+  { name: "United Kingdom" },
+  { name: "United States" },
+  { name: "Uruguay" },
+  { name: "Uzbekistan" },
+  { name: "Vanuatu" },
+  { name: "Vatican City" },
+  { name: "Venezuela" },
+  { name: "Vietnam" },
+  { name: "Yemen" },
+  { name: "Zambia" },
+  { name: "Zimbabwe" },
+];
+
+export const featuredProducts = [
+  {
+    _id: "sdsudsdsdsisds",
+    name: "Amazon Basics High-Speed Headset (18 Gbps, 4K/6...",
+    image:
+      "https://res.cloudinary.com/didbxg1f9/image/upload/v1728733966/images/scxy8qkqm5566kktcala.png",
+
+    price: 300,
+    featured: true,
+    slug: "/",
+  },
+  {
+    _id: "sdsudisdssds",
+    name: "Samsung Electronics Samsung Galexy S21 5G",
+    image:
+      "https://res.cloudinary.com/didbxg1f9/image/upload/v1728733966/images/kpce0jp2sfihzvlusm4p.png",
+
+    price: 300,
+    featured: true,
+    slug: "/",
+  },
+  {
+    _id: "sdssdsdsdudisds",
+    name: "Amazon Basics High-Speed Headset (18 Gbps, 4K/6...",
+    image:
+      "https://res.cloudinary.com/didbxg1f9/image/upload/v1728733965/images/yn8jb6tozdfggrkeaxww.png",
+
+    price: 300,
+    featured: true,
+    slug: "/",
+  },
+];
+
+export const productCart = [
+  {
+    id: "jshdkjqsd",
+    images: [
+      {
+        url: "https://res.cloudinary.com/didbxg1f9/image/upload/v1728636307/images/yydqhcxupugmjfzmch3n.png",
+      },
+    ],
+    name: "Canon EOS 1500D DSLR Camera Body+ 18-55 mm",
+    price: 1500,
+    discountRate: 30,
+  },
+  {
+    id: "jshdkjqsds",
+    images: [
+      {
+        url: "https://res.cloudinary.com/didbxg1f9/image/upload/v1728636307/images/yydqhcxupugmjfzmch3n.png",
+      },
+    ],
+    name: "Canon EOS 1500D DSLR Camera Body+ 18-55 mm",
+    price: 1500,
+    discountRate: 30,
+  },
+];
+
+export const discountItem = {
+  id: "dsds",
+  images: [
+    {
+      url: "https://res.cloudinary.com/didbxg1f9/image/upload/v1728735155/images/niqjxqdytym3urkpkjw5.png",
+    },
+  ],
+  discount: 21,
+  slug: "/slug",
+  price: 99,
+  description:
+    "Escape the noise, It’s time to hear the magic with Xiaomi Earbuds.",
+};
+export const productTags = [
+  {
+    id: "1",
+    name: "game",
+    active: false,
+  },
+  {
+    id: "2",
+    name: "iphone",
+    active: false,
+  },
+  {
+    id: "3",
+    name: "tv",
+    active: false,
+  },
+  {
+    id: "4",
+    name: "asus laptops",
+    active: false,
+  },
+  {
+    id: "5",
+    name: "macbook",
+    active: false,
+  },
+  {
+    id: "6",
+    name: "ssd",
+    active: false,
+  },
+  {
+    id: "jshdkjqsd",
+    name: "graphics card",
+    active: false,
+  },
+  {
+    id: "jshdkjqsd",
+    name: "power bank",
+    active: false,
+  },
+  {
+    id: "jshdkjqsd",
+    name: "smart TV",
+    active: false,
+  },
+  {
+    id: "jshdkjqsd",
+    name: "speaker",
+    active: false,
+  },
+  {
+    id: "jshdkjqsd",
+    name: "tablet",
+    active: false,
+  },
+  {
+    id: "jshdkjqsd",
+    name: "microwave",
+    active: false,
+  },
+  {
+    id: "jshdkjqsd",
+    name: "samsung",
+    active: false,
+  },
+];
+
+export const categories = [
+  {
+    id: "sdsd",
+    name: "computer & laptop",
+    link: "#",
+    subCategories: [{}],
+  },
+];
+export const faqRules = [
+  {
+    id: "faq.shipping",
+    keywords: [
+      // English
+      "shipping", "delivery", "how long", "arrive", "track", "when",
+      // French
+      "livraison", "expédition", "quand", "arriver", "suivi", "combien de temps",
+      // Kinyarwanda
+      "igihe", "kwakira", "gutanga", "kohereza", "igihe bizatwara",
+      // Swahili
+      "usafirishaji", "kuwasilisha", "itafika lini", "fuatilia", "lini itawasilishwa"
+    ],
+    response: "chatbot.response.shipping"
+  },
+  {
+    id: "faq.return",
+    keywords: [
+      "return", "refund", "exchange", "send back",
+      "retour", "remboursement", "échanger",
+      "gusubiza", "kugarura", "gusimbuza", "gusubizwa amafaranga",
+      "rudisha", "marejesho", "badilisha", "kurudisha"
+    ],
+    response: "chatbot.response.return"
+  },
+  {
+    id: "faq.payment",
+    keywords: [
+      "payment", "pay", "credit card", "paypal", "method",
+      "paiement", "payer", "carte", "paypal", "moyen de paiement",
+      "kwishyura", "uburyo bwo kwishyura", "ikarita",
+      "malipo", "kulipa", "kadi", "njia ya malipo"
+    ],
+    response: "chatbot.response.payment"
+  },
+  {
+    id: "faq.opening-hours",
+    keywords: [
+      "open", "hours", "when are you open", "working time",
+      "ouvert", "heures", "quand êtes-vous ouvert",
+      "igihe mukora", "mufungura ryari", "amasaha",
+      "saa", "mnafunguwa saa ngapi", "masaa ya kazi"
+    ],
+    response: "chatbot.response.openingHours"
+  }
+
+];
+
+

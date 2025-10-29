@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/** Add utilities to body content */
+body {
+  @apply text-black
+   dark:text-white xl:text-body-xl-400 lg:text-body-l-400 md:text-body-md-400 sm:text-body-sm-400 tiny:text-body-tiny-400 xs:text-body-xs-400 w-full h-full;
+}
+
+html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
+}
+
+/* This style below won't be included in your compiled 
+CSS unless you actually use it 
+  -  utilisties : Add any utilities class that Tailwind doesn’t have.
+  -  components:  any more complicated classes you want to add and override with utility classes
+  -  base:  default base styles for specific HTML elements
+*/
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+  }
+}
+@layer components {
+  .row {
+    @apply: flex flew-wrap items-center;
+  }
+}
+@layer base {
+  h1 {
+    @apply text-heading1 first-letter:capitalize;
+  }
+  h2 {
+    @apply text-heading2 first-letter:capitalize;
+  }
+  h3 {
+    @apply text-heading3 first-letter:capitalize;
+  }
+  h4 {
+    @apply text-heading4 first-letter:capitalize;
+  }
+  h5 {
+    @apply text-heading5 first-letter:capitalize;
+  }
+  svg,
+  button,
+  a {
+    @apply cursor-pointer;
+  }
+}
+
+/**This style below won't be included in your compiled 
+CSS */
+
+/* Scrollbar style */
+::-webkit-scrollbar {
+  @apply w-[10px] hidden
+
+  /* Customize the scrollbar width */;
+}
+::-webkit-scrollbar-track {
+  /* Customize the scrollbar track */
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-400 rounded-md
+  /* Customize the scrollbar thumb */;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-black;
+}
+
+.css-1dp2a72 {
+  font-size: 1rem !important;
+}
