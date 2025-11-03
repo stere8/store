@@ -9,3 +9,4 @@ EstorePoC/**/obj/
 .vscode/
 *.user
 Thumbs.db
+/.vs
