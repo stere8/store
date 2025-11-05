@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> opts) : DbContext(opts)
 {
     public DbSet<Vendor> Vendors => Set<Vendor>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<Order> Orders => Set<Order>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

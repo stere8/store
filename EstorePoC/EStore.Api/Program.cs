@@ -99,6 +99,30 @@ app.MapPost("/api/products", async (AppDbContext db, HttpContext http, ProductCr
     return Results.Created($"/api/products/{p.Id}", p);
 });
 
+app.MapPost("/api/orders", (Order order, AppDbContext db, HttpContext ctx) =>
+{
+    var tenant = GetTenant(ctx);
+    var product = db.Products.FirstOrDefault(p => p.Id == order.ProductId && p.TenantId == tenant);
+
+    if (product is null)
+        return Results.NotFound(new { error = "product not found" });
+
+    if (product.Stock < order.Quantity)
+        return Results.BadRequest(new { error = "not enough stock" });
+
+    // reduce inventory
+    product.Stock -= order.Quantity;
+
+    // create order
+    order.TenantId = tenant;
+    order.Total = product.Price * order.Quantity;
+    db.Orders.Add(order);
+
+    db.SaveChanges();
+    return Results.Ok(order);
+});
+
+
 // ---------------- Payments (mock gateways) ----------------
 app.MapPost("/api/payments/charge", async (HttpContext http, IPaymentGatewayFactory factory, PaymentRequest req) =>
 {

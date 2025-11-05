@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace EStore.Api.Services;
 
 public interface IPaymentGateway
@@ -18,10 +16,10 @@ public class PaymentGatewayFactory : IPaymentGatewayFactory
     {
         return (gateway?.Trim().ToLowerInvariant()) switch
         {
-            "mtn"    => new MtnGatewayMock(),
+            "mtn" => new MtnGatewayMock(),
             "airtel" => new AirtelGatewayMock(),
             "stripe" => new StripeGatewayMock(),
-            _        => new UnknownGatewayMock(gateway ?? "unknown")
+            _ => new UnknownGatewayMock(gateway ?? "unknown")
         };
     }
 }
@@ -30,7 +28,7 @@ public class StripeGatewayMock : IPaymentGateway
 {
     public Task<object> ChargeAsync(string tenantId, object request)
     {
-        var reference = MakeRef("ST");
+        var reference = PaymentRef.Make("ST");
         return Task.FromResult<object>(new { status = "success", gateway = "stripe", tenantId, reference });
     }
 }
@@ -39,7 +37,7 @@ public class MtnGatewayMock : IPaymentGateway
 {
     public Task<object> ChargeAsync(string tenantId, object request)
     {
-        var reference = MakeRef("MTN");
+        var reference = PaymentRef.Make("MTN");
         return Task.FromResult<object>(new { status = "success", gateway = "mtn", tenantId, reference });
     }
 }
@@ -48,7 +46,7 @@ public class AirtelGatewayMock : IPaymentGateway
 {
     public Task<object> ChargeAsync(string tenantId, object request)
     {
-        var reference = MakeRef("AIR");
+        var reference = PaymentRef.Make("AIR");
         return Task.FromResult<object>(new { status = "success", gateway = "airtel", tenantId, reference });
     }
 }
@@ -57,13 +55,17 @@ public class UnknownGatewayMock : IPaymentGateway
 {
     private readonly string _gw;
     public UnknownGatewayMock(string gw) => _gw = gw;
+
     public Task<object> ChargeAsync(string tenantId, object request)
         => Task.FromResult<object>(new { status = "error", gateway = _gw, tenantId, error = "Unsupported gateway" });
 }
 
-static string MakeRef(string prefix)
+internal static class PaymentRef
 {
-    var core = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
-        .Replace("=", "").Replace("+", "").Replace("/", "");
-    return $"{prefix}-{core[..12].ToUpperInvariant()}";
+    public static string Make(string prefix)
+    {
+        var core = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
+            .Replace("=", "").Replace("+", "").Replace("/", "");
+        return $"{prefix}-{core[..12].ToUpperInvariant()}";
+    }
 }
