@@ -122,6 +122,11 @@ app.MapPost("/api/orders", (Order order, AppDbContext db, HttpContext ctx) =>
     return Results.Ok(order);
 });
 
+string GetTenant(HttpContext ctx)
+{
+    throw new NotImplementedException();
+}
+
 
 // ---------------- Payments (mock gateways) ----------------
 app.MapPost("/api/payments/charge", async (HttpContext http, IPaymentGatewayFactory factory, PaymentRequest req) =>
