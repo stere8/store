@@ -23,12 +23,17 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 // Simple multi-tenant extractor (header or query; default mall-a)
+// In Program.cs (after app creation)
 app.Use(async (ctx, next) =>
 {
-    var tid = ctx.Request.Headers["X-Tenant"].FirstOrDefault()
-              ?? ctx.Request.Query["tenant"].FirstOrDefault()
-              ?? "mall-a";
-    ctx.Items["TenantId"] = tid;
+    var tenant = ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault()
+              ?? ctx.Request.Query["tenantId"].FirstOrDefault()
+              ?? "kigali-city-mall";
+
+    // Set on DbContext for global filters
+    var db = ctx.RequestServices.GetRequiredService<AppDbContext>();
+    db.CurrentTenantId = tenant;
+
     await next();
 });
 
