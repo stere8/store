@@ -106,7 +106,7 @@ app.MapPost("/api/products", async (AppDbContext db, HttpContext http, ProductCr
 
 app.MapPost("/api/orders", (Order order, AppDbContext db, HttpContext ctx) =>
 {
-    var tenant = GetTenant(ctx);
+    var tenant = db.CurrentTenantId;
     var product = db.Products.FirstOrDefault(p => p.Id == order.ProductId && p.TenantId == tenant);
 
     if (product is null)
@@ -127,10 +127,6 @@ app.MapPost("/api/orders", (Order order, AppDbContext db, HttpContext ctx) =>
     return Results.Ok(order);
 });
 
-string GetTenant(HttpContext ctx)
-{
-    throw new NotImplementedException();
-}
 
 
 // ---------------- Payments (mock gateways) ----------------
@@ -143,6 +139,66 @@ app.MapPost("/api/payments/charge", async (HttpContext http, IPaymentGatewayFact
     var gw = factory.Create(req.Gateway);       // "stripe" | "mtn" | "airtel"
     var result = await gw.ChargeAsync(tenant, req);
     return Results.Ok(result);
+});
+// ---------------- Reservations ----------------
+
+app.MapPost("/api/reservations", async (AppDbContext db, HttpContext http) =>
+{
+    var tenant = (string)http.Items["TenantId"]!;
+    var list = await db.Reservations
+        .Where(r => r.TenantId == tenant)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+    return Results.Ok(list);
+});
+
+app.MapGet("/api/vendors/{vendorId}/reservations", async (AppDbContext db, HttpContext http, Reservation reservation) =>
+{
+    var tenant = (string)http.Items["TenantId"]!;
+    reservation.TenantId = tenant;
+    reservation.CreatedAt = DateTime.UtcNow;
+    // Additional logic for reservation number, pickup code, total amount, etc. would go here.
+    db.Reservations.Add(reservation);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/reservations/{reservation.Id}", reservation);
+});
+
+app.MapPatch("/api/reservations/{reservationId}/status", async (
+    AppDbContext db, HttpContext http, Guid reservationId, string status) =>
+{
+    // Resolve tenant context
+    var tenant = (string)http.Items["TenantId"]!;
+
+    var reservation = await db.Reservations
+        .FirstOrDefaultAsync(r => r.Id == reservationId && r.TenantId == tenant);
+
+    if (reservation is null)
+        return Results.NotFound(new { error = "Reservation not found." });
+
+    // Convert the string to a ReservationStatus (case-insensitive)
+    if (!Enum.TryParse<ReservationStatus>(status, ignoreCase: true, out var newStatus))
+        return Results.BadRequest(new { error = $"Invalid status '{status}'." });
+
+    // Update the status and timestamp appropriately
+    reservation.Status = newStatus;
+    switch (newStatus)
+    {
+        case ReservationStatus.Confirmed:
+            reservation.ConfirmedAt = DateTimeOffset.UtcNow;
+            break;
+        case ReservationStatus.Completed:
+            reservation.CompletedAt = DateTimeOffset.UtcNow;
+            break;
+        case ReservationStatus.Rejected:
+            reservation.RejectedAt = DateTimeOffset.UtcNow;
+            break;
+        case ReservationStatus.Cancelled:
+            reservation.CancelledAt = DateTimeOffset.UtcNow;
+            break;
+    }
+
+    await db.SaveChangesAsync();
+    return Results.Ok(reservation);
 });
 
 app.Run();
