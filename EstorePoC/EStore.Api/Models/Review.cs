@@ -1,5 +1,4 @@
-﻿// EstorePoC/EStore.Api/Models/Review.cs
-namespace EStore.Api.Models;
+﻿namespace EStore.Api.Models;
 
 public class Review
 {
@@ -8,15 +7,13 @@ public class Review
     public Guid ProductId { get; set; }
     public Guid CustomerId { get; set; }
 
-    public int Rating { get; set; }                  // 1-5 scale
-    public string? Title { get; set; }               // Headline
-    public string? Comment { get; set; }             // Body
-    public bool IsPublished { get; set; } = true;   // Moderation flag
+    public int Rating { get; set; } // 1..5
+    public string? Title { get; set; }
+    public string? Comment { get; set; }
+    public bool IsPublished { get; set; } = true;
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-    public DateTimeOffset? UpdatedAt { get; set; }
 
-    // Navigation
-    public Product Product { get; set; } = default!;
-    public Customer Customer { get; set; } = default!;
+    public Product? Product { get; set; }
+    public Customer? Customer { get; set; }
 }

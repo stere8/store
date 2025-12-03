@@ -4,6 +4,7 @@ using EStore.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 
+// ---------------- Bootstrapping ----------------
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
@@ -13,51 +14,93 @@ builder.Services.AddCors(o => o.AddPolicy("any", p => p
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Payment strategy
-builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>(); // uses mock gateways
+// Payment strategy (kept for future use/mocks)
+builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>();
 
 var app = builder.Build();
 
-// Middleware
+// ---------------- Middleware ----------------
 app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Simple multi-tenant extractor (header or query; default mall-a)
-// In Program.cs (after app creation)
+// Tenant extractor (header or query; default Kigali City Mall)
 app.Use(async (ctx, next) =>
 {
     var tenant = ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault()
               ?? ctx.Request.Query["tenantId"].FirstOrDefault()
               ?? "kigali-city-mall";
 
-    // Set on DbContext for global filters
+    // Set on DbContext for global filters / scoping
     var db = ctx.RequestServices.GetRequiredService<AppDbContext>();
     db.CurrentTenantId = tenant;
 
     await next();
 });
 
-// Health
-app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTime.UtcNow }));
+// ---------------- Health ----------------
+app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTimeOffset.UtcNow }));
 
-// ---------------- Vendors ----------------
+// =======================================================================
+//                               LOCATIONS
+// =======================================================================
+
+// Create a location for the current tenant
+app.MapPost("/api/locations", async (AppDbContext db, LocationCreateDto dto) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var loc = new Location
+    {
+        Id = Guid.NewGuid(),
+        TenantId = tenant,
+        Name = dto.Name.Trim(),
+        Code = dto.Code?.Trim(),
+        Description = dto.Description?.Trim(),
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+
+    db.Locations.Add(loc);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/locations/{loc.Id}", loc);
+});
+
+// List locations for current tenant
+app.MapGet("/api/locations", async (AppDbContext db) =>
+{
+    var list = await db.Locations.OrderBy(x => x.Name).ToListAsync();
+    return Results.Ok(list);
+});
+
+// =======================================================================
+//                                VENDORS
+// =======================================================================
+
 app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto) =>
 {
     var tenant = db.CurrentTenantId!;
+
+    // Optional: validate LocationId belongs to tenant
+    if (dto.LocationId is Guid locId)
+    {
+        var ok = await db.Locations.AnyAsync(l => l.Id == locId && l.TenantId == tenant);
+        if (!ok) return Results.BadRequest(new { error = "Location not found in this tenant." });
+    }
+
     var v = new Vendor
     {
         Id = Guid.NewGuid(),
         TenantId = tenant,
         DisplayName = dto.DisplayName.Trim(),
         LegalName = dto.LegalName.Trim(),
-        StoreLocation = dto.StoreLocation?.Trim(),
         ContactPhone = dto.ContactPhone.Trim(),
         ContactEmail = dto.ContactEmail?.Trim(),
+        Description = dto.Description?.Trim(),      // requires Vendor.Description in model
+        LocationId = dto.LocationId,                // requires Vendor.LocationId in model
         Active = true,
         Verified = false,
         CreatedAt = DateTimeOffset.UtcNow
     };
+
     db.Vendors.Add(v);
     await db.SaveChangesAsync();
     return Results.Created($"/api/vendors/{v.Id}", v);
@@ -73,7 +116,10 @@ app.MapGet("/api/vendors", async (AppDbContext db) =>
     return Results.Ok(list);
 });
 
-// ---------------- Products ----------------
+// =======================================================================
+//                               PRODUCTS
+// =======================================================================
+
 app.MapGet("/api/products", async (AppDbContext db) =>
 {
     var tenant = db.CurrentTenantId!;
@@ -90,7 +136,8 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
     if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
         return Results.BadRequest(new { error = "Invalid product payload." });
 
-    var existsVendor = await db.Vendors.AnyAsync(v => v.TenantId == tenant && v.Id == dto.VendorId && v.Active);
+    var existsVendor = await db.Vendors.AnyAsync(v =>
+        v.TenantId == tenant && v.Id == dto.VendorId && v.Active);
     if (!existsVendor)
         return Results.BadRequest(new { error = "Vendor not found (or inactive) in this tenant." });
 
@@ -102,7 +149,7 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
         Name = dto.Name.Trim(),
         Description = dto.Description?.Trim(),
         Price = dto.Price,
-        StockQuantity = dto.Stock,              // set the canonical field
+        StockQuantity = dto.Stock,              // canonical stock field
         ImageUrl = dto.ImageUrl,
         Active = true,
         CreatedAt = DateTimeOffset.UtcNow
@@ -112,9 +159,117 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
     return Results.Created($"/api/products/{p.Id}", p);
 });
 
-// ---------------- Reservations ----------------
+// =======================================================================
+//                               CARTS
+// =======================================================================
 
-// POST create reservation (holds stock)
+// Ensure one active cart for {tenant, customer}
+app.MapPost("/api/carts/ensure", async (AppDbContext db, EnsureCartDto dto) =>
+{
+    var tenant = db.CurrentTenantId!;
+
+    var customerExists = await db.Customers.AnyAsync(c => c.Id == dto.CustomerId && c.TenantId == tenant);
+    if (!customerExists)
+        return Results.BadRequest(new { error = "Customer not found in this tenant." });
+
+    var cart = await db.ShoppingCarts
+        .Include(c => c.Items)
+        .FirstOrDefaultAsync(c => c.TenantId == tenant && c.CustomerId == dto.CustomerId && c.IsActive);
+
+    if (cart is null)
+    {
+        cart = new ShoppingCart
+        {
+            TenantId = tenant,
+            CustomerId = dto.CustomerId,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        db.ShoppingCarts.Add(cart);
+        await db.SaveChangesAsync();
+    }
+
+    return Results.Ok(cart);
+});
+
+// Add or increase an item in cart
+app.MapPost("/api/carts/{cartId:guid}/items", async (AppDbContext db, Guid cartId, AddCartItemDto dto) =>
+{
+    if (dto.Quantity <= 0)
+        return Results.BadRequest(new { error = "Quantity must be > 0." });
+
+    var tenant = db.CurrentTenantId!;
+    var cart = await db.ShoppingCarts
+        .Include(c => c.Items)
+        .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant && c.IsActive);
+
+    if (cart is null)
+        return Results.NotFound(new { error = "Cart not found or not active." });
+
+    var product = await db.Products.FirstOrDefaultAsync(p => p.Id == dto.ProductId && p.TenantId == tenant && p.Active);
+    if (product is null)
+        return Results.BadRequest(new { error = "Product not found or inactive in this tenant." });
+
+    var existing = cart.Items.FirstOrDefault(i => i.ProductId == dto.ProductId);
+    if (existing is null)
+    {
+        cart.Items.Add(new ShoppingCartItem
+        {
+            ProductId = dto.ProductId,
+            Quantity = dto.Quantity
+            // If you snapshot price: set UnitPrice/LineTotal here
+        });
+    }
+    else
+    {
+        existing.Quantity += dto.Quantity;
+        // Recompute LineTotal if you snapshot price
+    }
+
+    cart.UpdatedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(cart);
+});
+
+// Get cart with items and product details
+app.MapGet("/api/carts/{cartId:guid}", async (AppDbContext db, Guid cartId) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var cart = await db.ShoppingCarts
+        .Include(c => c.Items)
+        .ThenInclude(i => i.Product)
+        .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant);
+
+    return cart is null ? Results.NotFound() : Results.Ok(cart);
+});
+
+// Remove an item
+app.MapDelete("/api/carts/{cartId:guid}/items/{productId:guid}", async (AppDbContext db, Guid cartId, Guid productId) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var cart = await db.ShoppingCarts
+        .Include(c => c.Items)
+        .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant && c.IsActive);
+
+    if (cart is null)
+        return Results.NotFound(new { error = "Cart not found or not active." });
+
+    var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+    if (item is null)
+        return Results.NotFound(new { error = "Item not in cart." });
+
+    db.ShoppingCartItems.Remove(item);
+    cart.UpdatedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+// =======================================================================
+//                             RESERVATIONS
+// =======================================================================
+
+// Create reservation (holds stock)
 app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dto) =>
 {
     var tenantId = db.CurrentTenantId!;
@@ -206,7 +361,7 @@ app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dt
     return Results.Created($"/api/reservations/{reservation.Id}", reservation);
 });
 
-// GET list reservations for a vendor (filters optional)
+// List reservations for a vendor (with filters)
 app.MapGet("/api/vendors/{vendorId:guid}/reservations",
     async (AppDbContext db, Guid vendorId, string? status, DateTimeOffset? from, DateTimeOffset? to) =>
     {
@@ -226,7 +381,7 @@ app.MapGet("/api/vendors/{vendorId:guid}/reservations",
         return Results.Ok(list);
     });
 
-// PATCH status (timestamps + stock finalize/release)
+// Patch reservation status (with terminal guards)
 app.MapPatch("/api/reservations/{reservationId:guid}/status",
     async (AppDbContext db, Guid reservationId, string status) =>
     {
@@ -241,17 +396,16 @@ app.MapPatch("/api/reservations/{reservationId:guid}/status",
         if (!Enum.TryParse<ReservationStatus>(status, ignoreCase: true, out var newStatus))
             return Results.BadRequest(new { error = $"Invalid status '{status}'." });
 
+        // Terminal guards
         if (reservation.Status == ReservationStatus.Completed &&
-    Enum.TryParse<ReservationStatus>(status, true, out var tmp) && tmp == ReservationStatus.Completed)
+            newStatus == ReservationStatus.Completed)
             return Results.BadRequest(new { error = "Already completed." });
 
         bool IsTerminal(ReservationStatus s) =>
             s is ReservationStatus.Completed or ReservationStatus.Rejected or ReservationStatus.Cancelled;
 
-        if (IsTerminal(reservation.Status) &&
-            Enum.TryParse<ReservationStatus>(status, true, out var ns) && reservation.Status != ns)
-            return Results.BadRequest(new { error = $"Cannot transition from {reservation.Status} to {ns}." });
-
+        if (IsTerminal(reservation.Status) && reservation.Status != newStatus)
+            return Results.BadRequest(new { error = $"Cannot transition from {reservation.Status} to {newStatus}." });
 
         switch (newStatus)
         {
@@ -297,13 +451,123 @@ app.MapPatch("/api/reservations/{reservationId:guid}/status",
         return Results.Ok(reservation);
     });
 
+// =======================================================================
+//                                REVIEWS
+// =======================================================================
 
+// Create one review per (tenant, product, customer)
+app.MapPost("/api/products/{productId:guid}/reviews", async (AppDbContext db, Guid productId, CreateReviewDto dto) =>
+{
+    if (dto.Rating < 1 || dto.Rating > 5)
+        return Results.BadRequest(new { error = "Rating must be between 1 and 5." });
 
+    var tenant = db.CurrentTenantId!;
+
+    var productExists = await db.Products.AnyAsync(p => p.Id == productId && p.TenantId == tenant && p.Active);
+    if (!productExists)
+        return Results.BadRequest(new { error = "Product not found or inactive." });
+
+    var customerExists = await db.Customers.AnyAsync(c => c.Id == dto.CustomerId && c.TenantId == tenant);
+    if (!customerExists)
+        return Results.BadRequest(new { error = "Customer not found in this tenant." });
+
+    var duplicate = await db.Reviews.AnyAsync(r =>
+        r.TenantId == tenant && r.ProductId == productId && r.CustomerId == dto.CustomerId);
+    if (duplicate)
+        return Results.Conflict(new { error = "You have already reviewed this product." });
+
+    var review = new Review
+    {
+        TenantId = tenant,
+        ProductId = productId,
+        CustomerId = dto.CustomerId,
+        Rating = dto.Rating,
+        Title = dto.Title?.Trim(),
+        Comment = dto.Comment?.Trim(),
+        IsPublished = true,
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+
+    db.Reviews.Add(review);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/products/{productId}/reviews/{review.Id}", review);
+});
+
+// List reviews (paged)
+app.MapGet("/api/products/{productId:guid}/reviews", async (AppDbContext db, Guid productId, int page = 1, int pageSize = 20) =>
+{
+    var tenant = db.CurrentTenantId!;
+    if (page < 1) page = 1;
+    if (pageSize < 1 || pageSize > 100) pageSize = 20;
+
+    var query = db.Reviews
+        .Where(r => r.TenantId == tenant && r.ProductId == productId && r.IsPublished)
+        .OrderByDescending(r => r.CreatedAt);
+
+    var total = await query.CountAsync();
+    var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+    return Results.Ok(new { total, page, pageSize, items });
+});
+
+// =======================================================================
+//                         MAINTENANCE: EXPIRE PENDING
+// =======================================================================
+
+app.MapPost("/api/reservations/maintenance/expire", async (AppDbContext db) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var now = DateTimeOffset.UtcNow;
+
+    var toExpire = await db.Reservations
+        .Include(r => r.Items)
+        .Where(r => r.TenantId == tenant
+            && r.Status == ReservationStatus.Pending
+            && r.ExpiresAt <= now)
+        .ToListAsync();
+
+    if (toExpire.Count == 0) return Results.Ok(new { expired = 0 });
+
+    var productIds = toExpire.SelectMany(r => r.Items.Select(i => i.ProductId)).Distinct().ToList();
+    var products = await db.Products.Where(p => p.TenantId == tenant && productIds.Contains(p.Id)).ToListAsync();
+
+    foreach (var res in toExpire)
+    {
+        foreach (var li in res.Items)
+        {
+            var prod = products.First(p => p.Id == li.ProductId);
+            prod.ReservedQuantity -= li.Quantity;
+            if (prod.ReservedQuantity < 0) prod.ReservedQuantity = 0;
+        }
+        res.Status = ReservationStatus.Cancelled;
+        res.CancelledAt = now;
+    }
+
+    await db.SaveChangesAsync();
+    return Results.Ok(new { expired = toExpire.Count });
+});
+
+// ---------------- THE END OF TOP-LEVEL STATEMENTS ----------------
 app.Run();
 
-// DTOs
-public record VendorCreateDto(string DisplayName, string LegalName, string ContactPhone, string? ContactEmail, string? StoreLocation);
+
+// =======================================================================
+//                              RECORD DTOs
+// =======================================================================
+
+public record LocationCreateDto(string Name, string? Code, string? Description);
+
+public record VendorCreateDto(
+    string DisplayName,
+    string LegalName,
+    string ContactPhone,
+    string? ContactEmail,
+    Guid? LocationId,
+    string? Description
+);
+
 public record ProductCreateDto(Guid VendorId, string Name, string? Description, decimal Price, int Stock, string? ImageUrl);
+
 public record CreateReservationDto(
     Guid VendorId,
     string CustomerName,
@@ -312,9 +576,20 @@ public record CreateReservationDto(
     string? CustomerNote,
     string? PreferredLanguage,
     List<CreateReservationItemDto> Items);
+
 public record CreateReservationItemDto(Guid ProductId, int Quantity);
 
-// Helpers (as a type, not top-level statements)
+public record EnsureCartDto(Guid CustomerId);
+
+public record AddCartItemDto(Guid ProductId, int Quantity);
+
+public record CreateReviewDto(int Rating, string? Title, string? Comment, Guid CustomerId);
+
+
+// =======================================================================
+//                           PROGRAM HELPERS
+// =======================================================================
+
 public static class ProgramHelpers
 {
     public static string GeneratePickupCode()
@@ -332,7 +607,11 @@ public static class ProgramHelpers
 
     public static DateTimeOffset ComputeExpiry(AppDbContext db, string tenantId)
     {
-        var hours = db.Tenants.Where(t => t.Id == tenantId).Select(t => t.DefaultExpiryHours).FirstOrDefault();
+        var hours = db.Tenants
+            .Where(t => t.Id == tenantId)
+            .Select(t => t.DefaultExpiryHours)
+            .FirstOrDefault();
+
         if (hours <= 0) hours = 24;
         return DateTimeOffset.UtcNow.AddHours(hours);
     }

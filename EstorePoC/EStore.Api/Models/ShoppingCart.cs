@@ -1,5 +1,4 @@
-﻿// EstorePoC/EStore.Api/Models/ShoppingCart.cs
-namespace EStore.Api.Models;
+﻿namespace EStore.Api.Models;
 
 public class ShoppingCart
 {
@@ -7,11 +6,10 @@ public class ShoppingCart
     public string TenantId { get; set; } = default!;
     public Guid CustomerId { get; set; }
 
-    public bool IsActive { get; set; } = true;       // One active cart per customer per tenant
+    public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
-    // Navigation
-    public Customer Customer { get; set; } = default!;
+    public Customer? Customer { get; set; }
     public ICollection<ShoppingCartItem> Items { get; set; } = new List<ShoppingCartItem>();
 }
