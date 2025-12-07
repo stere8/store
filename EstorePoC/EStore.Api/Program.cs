@@ -6,24 +6,51 @@ using System.Security.Cryptography;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Services
-builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("estore"));
-builder.Services.AddCors(options => options.AddPolicy("any", p =>
-    p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+// =======================================================================
+// DATABASE CONFIGURATION (UPDATED FOR SQL SERVER)
+// =======================================================================
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.CommandTimeout(60);
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorNumbersToAdd: null);
+    });
+
+    // DEV diagnostics
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.EnableDetailedErrors();
+    }
+});
+
+builder.Services.AddCors(options =>
+    options.AddPolicy("any", p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Payment strategy placeholder (currently unused)
+// Payment strategy placeholder
 builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>();
 
 var app = builder.Build();
 
-// Middleware
+// =======================================================================
+// MIDDLEWARE
+// =======================================================================
+
 app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Tenant extractor (header "X-Tenant-Id" or query "tenantId"; default Kigali City Mall)
+// Tenant extractor (header "X-Tenant-Id" or query "tenantId")
 app.Use(async (ctx, next) =>
 {
     var tenant = ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault()
@@ -36,14 +63,22 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
-// Health
+// =======================================================================
+// DATABASE INITIALIZATION (NEW)
+// =======================================================================
+
+await EnsureDatabaseAsync(app);
+
+// =======================================================================
+// HEALTH CHECK
+// =======================================================================
+
 app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTimeOffset.UtcNow }));
 
 // =======================================================================
 // LOCATIONS
 // =======================================================================
 
-// Create a location for the current tenant
 app.MapPost("/api/locations", async (AppDbContext db, LocationCreateDto dto) =>
 {
     var tenant = db.CurrentTenantId!;
@@ -61,7 +96,6 @@ app.MapPost("/api/locations", async (AppDbContext db, LocationCreateDto dto) =>
     return Results.Created($"/api/locations/{loc.Id}", loc);
 });
 
-// List locations for current tenant
 app.MapGet("/api/locations", async (AppDbContext db) =>
 {
     var list = await db.Locations.OrderBy(x => x.Name).ToListAsync();
@@ -72,10 +106,10 @@ app.MapGet("/api/locations", async (AppDbContext db) =>
 // VENDORS
 // =======================================================================
 
-// Register a new vendor
 app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto) =>
 {
     var tenant = db.CurrentTenantId!;
+
     if (dto.LocationId is Guid locId)
     {
         var valid = await db.Locations.AnyAsync(l => l.Id == locId && l.TenantId == tenant);
@@ -96,12 +130,13 @@ app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto
         Verified = false,
         CreatedAt = DateTimeOffset.UtcNow
     };
+
     db.Vendors.Add(v);
     await db.SaveChangesAsync();
+
     return Results.Created($"/api/vendors/{v.Id}", v);
 });
 
-// List vendors for current tenant
 app.MapGet("/api/vendors", async (AppDbContext db) =>
 {
     var tenant = db.CurrentTenantId!;
@@ -109,6 +144,7 @@ app.MapGet("/api/vendors", async (AppDbContext db) =>
         .Where(x => x.TenantId == tenant)
         .OrderByDescending(x => x.CreatedAt)
         .ToListAsync();
+
     return Results.Ok(list);
 });
 
@@ -116,7 +152,6 @@ app.MapGet("/api/vendors", async (AppDbContext db) =>
 // PRODUCTS
 // =======================================================================
 
-// List active products for current tenant
 app.MapGet("/api/products", async (AppDbContext db) =>
 {
     var tenant = db.CurrentTenantId!;
@@ -127,17 +162,18 @@ app.MapGet("/api/products", async (AppDbContext db) =>
     return Results.Ok(list);
 });
 
-// Create a product
 app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
 {
     var tenant = db.CurrentTenantId!;
+
     if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
         return Results.BadRequest(new { error = "Invalid product payload." });
 
     var vendorExists = await db.Vendors.AnyAsync(v =>
         v.TenantId == tenant && v.Id == dto.VendorId && v.Active);
+
     if (!vendorExists)
-        return Results.BadRequest(new { error = "Vendor not found (or inactive) in this tenant." });
+        return Results.BadRequest(new { error = "Vendor not found or inactive in this tenant." });
 
     var p = new Product
     {
@@ -152,8 +188,10 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
         Active = true,
         CreatedAt = DateTimeOffset.UtcNow
     };
+
     db.Products.Add(p);
     await db.SaveChangesAsync();
+
     return Results.Created($"/api/products/{p.Id}", p);
 });
 
@@ -161,10 +199,10 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
 // CARTS
 // =======================================================================
 
-// Ensure a customer has one active cart
 app.MapPost("/api/carts/ensure", async (AppDbContext db, EnsureCartDto dto) =>
 {
     var tenant = db.CurrentTenantId!;
+
     var exists = await db.Customers.AnyAsync(c => c.Id == dto.CustomerId && c.TenantId == tenant);
     if (!exists) return Results.BadRequest(new { error = "Customer not found in this tenant." });
 
@@ -189,16 +227,17 @@ app.MapPost("/api/carts/ensure", async (AppDbContext db, EnsureCartDto dto) =>
     return Results.Ok(cart);
 });
 
-// Add or increment an item in a cart
 app.MapPost("/api/carts/{cartId:guid}/items", async (AppDbContext db, Guid cartId, AddCartItemDto dto) =>
 {
     if (dto.Quantity <= 0)
         return Results.BadRequest(new { error = "Quantity must be > 0." });
 
     var tenant = db.CurrentTenantId!;
+
     var cart = await db.ShoppingCarts
         .Include(c => c.Items)
         .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant && c.IsActive);
+
     if (cart is null)
         return Results.NotFound(new { error = "Cart not found or not active." });
 
@@ -207,6 +246,7 @@ app.MapPost("/api/carts/{cartId:guid}/items", async (AppDbContext db, Guid cartI
         return Results.BadRequest(new { error = "Product not found or inactive in this tenant." });
 
     var existing = cart.Items.FirstOrDefault(i => i.ProductId == dto.ProductId);
+
     if (existing is null)
     {
         cart.Items.Add(new ShoppingCartItem
@@ -222,10 +262,10 @@ app.MapPost("/api/carts/{cartId:guid}/items", async (AppDbContext db, Guid cartI
 
     cart.UpdatedAt = DateTimeOffset.UtcNow;
     await db.SaveChangesAsync();
+
     return Results.Ok(cart);
 });
 
-// Get a cart with items
 app.MapGet("/api/carts/{cartId:guid}", async (AppDbContext db, Guid cartId) =>
 {
     var tenant = db.CurrentTenantId!;
@@ -233,28 +273,32 @@ app.MapGet("/api/carts/{cartId:guid}", async (AppDbContext db, Guid cartId) =>
         .Include(c => c.Items)
         .ThenInclude(i => i.Product)
         .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant);
+
     return cart is null ? Results.NotFound() : Results.Ok(cart);
 });
 
-// Remove an item from cart
-app.MapDelete("/api/carts/{cartId:guid}/items/{productId:guid}", async (AppDbContext db, Guid cartId, Guid productId) =>
-{
-    var tenant = db.CurrentTenantId!;
-    var cart = await db.ShoppingCarts
-        .Include(c => c.Items)
-        .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant && c.IsActive);
-    if (cart is null)
-        return Results.NotFound(new { error = "Cart not found or not active." });
+app.MapDelete("/api/carts/{cartId:guid}/items/{productId:guid}",
+    async (AppDbContext db, Guid cartId, Guid productId) =>
+    {
+        var tenant = db.CurrentTenantId!;
 
-    var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
-    if (item is null)
-        return Results.NotFound(new { error = "Item not in cart." });
+        var cart = await db.ShoppingCarts
+            .Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant && c.IsActive);
 
-    db.ShoppingCartItems.Remove(item);
-    cart.UpdatedAt = DateTimeOffset.UtcNow;
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
+        if (cart is null)
+            return Results.NotFound(new { error = "Cart not found or not active." });
+
+        var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+        if (item is null)
+            return Results.NotFound(new { error = "Item not found." });
+
+        db.ShoppingCartItems.Remove(item);
+        cart.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync();
+        return Results.NoContent();
+    });
 
 // =======================================================================
 // RESERVATIONS
@@ -522,6 +566,110 @@ app.MapPost("/api/reservations/maintenance/expire", async (AppDbContext db) =>
 });
 
 app.Run();
+
+static async Task EnsureDatabaseAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        await db.Database.EnsureCreatedAsync();
+
+        var pending = await db.Database.GetPendingMigrationsAsync();
+        if (pending.Any())
+        {
+            logger.LogInformation("Applying {Count} migrations…", pending.Count());
+            await db.Database.MigrateAsync();
+        }
+
+        await SeedDatabaseAsync(db, logger);
+
+        logger.LogInformation("Database initialization completed");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Database initialization FAILED");
+        throw;
+    }
+}
+
+static async Task SeedDatabaseAsync(AppDbContext db, ILogger logger)
+{
+    if (await db.Tenants.AnyAsync())
+    {
+        logger.LogInformation("Seed skipped — database not empty");
+        return;
+    }
+
+    logger.LogInformation("Seeding database…");
+
+    var tenants = new[]
+    {
+        new Tenant
+        {
+            Id = "kigali-city-mall",
+            Name = "Kigali City Mall",
+            Slug = "kigali-city-mall",
+            ContactEmail = "info@kcm.rw",
+            TimeZone = "Africa/Kigali",
+            DefaultExpiryHours = 24,
+            CreatedAt = DateTimeOffset.UtcNow
+        },
+        new Tenant
+        {
+            Id = "chic-complex",
+            Name = "Chic Complex",
+            Slug = "chic-complex",
+            ContactEmail = "info@chic.rw",
+            TimeZone = "Africa/Kigali",
+            DefaultExpiryHours = 12,
+            CreatedAt = DateTimeOffset.UtcNow
+        }
+    };
+
+    db.Tenants.AddRange(tenants);
+
+    var locations = new[]
+    {
+        new Location
+        {
+            Id = Guid.NewGuid(),
+            TenantId = "kigali-city-mall",
+            Name = "Ground Floor - East Wing",
+            Code = "GF-E",
+            Description = "Main entrance area",
+            CreatedAt = DateTimeOffset.UtcNow
+        },
+        new Location
+        {
+            Id = Guid.NewGuid(),
+            TenantId = "kigali-city-mall",
+            Name = "First Floor - Food Court",
+            Code = "1F-FC",
+            Description = "Food court",
+            CreatedAt = DateTimeOffset.UtcNow
+        },
+        new Location
+        {
+            Id = Guid.NewGuid(),
+            TenantId = "chic-complex",
+            Name = "Shop Unit A1",
+            Code = "A1",
+            Description = "Corner unit",
+            CreatedAt = DateTimeOffset.UtcNow
+        }
+    };
+
+    db.Locations.AddRange(locations);
+
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("Seed complete: {Tenants} tenants, {Locations} locations",
+        tenants.Length, locations.Length);
+}
+
 
 // =======================================================================
 // DTOs
