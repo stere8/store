@@ -11,7 +11,7 @@ import ProductColors from "./ProductColors";
 import { Separator } from "@/components/ui/separator";
 import ProductSizes from "./ProductSizes";
 import ProductQty from "./ProductQty";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart,MessageCircleQuestion } from "lucide-react";
 import { RectangleButton } from "@/components/custom/RectangleButton";
 import ProductShare from "./ProductShare";
 import ProductPayments from "./ProductPayments";
@@ -127,7 +127,7 @@ export default function ProductDetails({
       await stripe!.redirectToCheckout({
         sessionId: response.data.id,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Stripe checkout error:", err);
       toast({
         variant: "destructive",
@@ -138,7 +138,21 @@ export default function ProductDetails({
       setLoading(false);
     }
   };
+  const handleMessageSeller = () => {
+  const StoreId = product?.storeId;
+  if (!StoreId) {
+    toast({
+      variant: "destructive",
+      title: "Oops",
+      description: "Seller not found.",
+    });
+    return;
+  }
 
+  // navigate to a chat page — example: /chat/[StoreId]?product=[productId]
+  window.location.href = `/chat/${StoreId}?product=${product._id}`;
+  };
+  
   return (
     <div className="flex flex-col gap-4">
       {loading && <Loading loading={true} />}
@@ -266,15 +280,29 @@ export default function ProductDetails({
       <div className="flex flex-wrap md:flex-nowrap justify-between gap-4 mt-4">
         <ProductQty qty={qty} setQty={setQty} />
 
+        {/* 👇 New Message Seller button */}
+        <RectangleButton
+          onClick={handleMessageSeller}
+          size="sm"
+          variant="primary-outline"
+          icon="none"
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <MessageCircleQuestion className="w-5 h-5" />
+          Seller
+        </RectangleButton>
+
         <RectangleButton
           onClick={() => {
-            activeOptionVariant
-              ? handleAddToCart(activeOptionVariant)
-              : toast({
-                  variant: "destructive",
-                  title: "Oops",
-                  description: "Choose a variant",
-                });
+            if (activeOptionVariant) {
+              handleAddToCart(activeOptionVariant);
+            } else {
+              toast({
+                variant: "destructive",
+                title: "Oops",
+                description: "Choose a variant",
+              });
+            }
           }}
           className="!py-4"
           variant="primary"
@@ -286,13 +314,15 @@ export default function ProductDetails({
 
         <RectangleButton
           onClick={() => {
-            activeOptionVariant
-              ? handleBuyNow(activeOptionVariant)
-              : toast({
-                  variant: "destructive",
-                  title: "Oops",
-                  description: "Choose a variant",
-                });
+            if (activeOptionVariant) {
+              handleBuyNow(activeOptionVariant);
+            } else {
+              toast({
+                variant: "destructive",
+                title: "Oops",
+                description: "Choose a variant",
+              });
+            }
           }}
           size="sm"
           variant="primary-outline"

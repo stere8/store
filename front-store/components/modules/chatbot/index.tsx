@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { Bot, MessageSquare, SendHorizonal, X } from "lucide-react";
-import { FormattedMessage } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 import { Button } from "@/components/ui/button";
 import { findBestMatch } from "@/components/modules/chatbot/findBestMatch"; // Response matching logic
 
@@ -14,7 +14,7 @@ function Chatbot() {
   const [height, setHeight] = useState(300); // Chatbox height
   const [isResizing, setIsResizing] = useState(false); // Drag-to-resize state
   const [botTyping, setBotTyping] = useState(false); // Typing indicator
-
+  const intl = useIntl();
   // Handle user submitting a message
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -135,7 +135,7 @@ function Chatbot() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type..."
+              placeholder={intl.formatMessage({ id:  "chatbot.type-here" })}
               className="flex-grow px-2 py-1 text-sm outline-none"
             />
             <button

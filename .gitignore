@@ -1,12 +1,15 @@
-node_modules/
-.next/
-out/
-.env*
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/E-Store/CopilotIndices/17.14.1368.60722
+/.vs/E-Store/FileContentIndex
+/.vs/E-Store
+/EstorePoC/EStore.Api/bin/Debug
+bin/
+obj/
+*.user
+*.swp
+*.DS_Store
 api-admin/.env
 front-store/.env
-EstorePoC/**/bin/
-EstorePoC/**/obj/
-.vscode/
-*.user
-Thumbs.db
-/.vs

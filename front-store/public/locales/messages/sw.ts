@@ -167,7 +167,7 @@ export default {
   "chatbot.send": "Tuma",
   "chatbot.how-can-we-help-today": "Tunaweza kukusaidiaje leo?",
   "chatbot.close": "Funga",
-  
+  "chatbot.type-here": "Andika ujumbe wako hapa...",
 
   
 

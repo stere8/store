@@ -1,0 +1,22 @@
+:root{
+    --bg: #151c2c;
+    --bgSofter: #1e2739;
+    --text: #FFFFFF;
+    --textSofter: #B3B3B3;
+}
+* {
+    box-sizing: border-box;
+     margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+   //font-family: Arial, sans-serif;
+}
+
+a { 
+    color: inherit;
+    text-decoration: none;
+}

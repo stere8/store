@@ -165,6 +165,7 @@ export default {
   "chatbot.unrecognized": "Je suis désolé, je n'ai pas compris cela. Souhaitez-vous parler à un agent humain ?",
   "chatbot.agent-option": "Se connecter à un agent humain",
   "chatbot.how-can-we-help-today": "Comment pouvons-nous vous aider aujourd'hui ?",
+  "chatbot.type-here": "Tapez votre message ici...",
 
  
 

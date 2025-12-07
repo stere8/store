@@ -1,0 +1,43 @@
+.container {
+  background-color: var(--bgSofter);
+  padding: 20px;
+  border-radius: 10px;
+}
+.title {
+  font-weight: 200;
+  margin-bottom: 20px;
+  color: var(--textSofter);
+}
+
+.table {
+  width: 100%;
+}
+
+.table td{
+    padding: 10px;  
+}
+.user{ 
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.user img{
+    border-radius: 50%;
+    object-fit: cover;
+}
+.status{
+    padding: 5px 10px;
+    border-radius: 5px;
+    color: white;
+    font-size: 14px;
+}
+.pending{
+    background-color: orange;
+}
+.approved{
+    background-color: green;
+}
+.declined{
+    background-color: red;
+}

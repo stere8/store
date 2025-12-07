@@ -30,7 +30,7 @@ export default {
   'home.main.top-rated': 'ibyahawe amanota menshi',
   'home.main.new-arrival': 'ibishya byagezeho',
   "home.main.noProductsAvailable": "Nta bicuruzwa biboneka.",
-  'home.main.subscribe-to-news': 'iyandikishe kuri buri gihe wandikirwa',
+  'home.main.subscribe-to-news': 'iyandikishe kuhabwa ikinyamakuru cyashu',
   'home.main.subscribe-desc': 'Menya amakuru mashya yose yerekeye ibicuruzwa, ibyiciro, n\'ibiciro bihanitse binyuze mu butumwa bugufi kuri email yawe kugira ngo utazacikanwa n\'ayo mahirwe.',
   'home.main.subscribe': 'iyandikishe',
   'home.main.subcribe-enter-mail': 'Andika aderesi ya email yawe hano',
@@ -164,7 +164,8 @@ export default {
   "chatbot.response.openingHours": "Turafungura kuva saa tatu za mugitondo kugeza saa kumi n'ebyiri z'umugoroba, kuva ku wa Mbere kugeza ku wa Gatanu.",
   "chatbot.unrecognized": "Mbabarira, sinabyumvise. Wifuza kuvugana n'umukozi w'umuntu?",
   "chatbot.agent-option": "guhuza n'umukozi w'umuntu",
-  "chatbot.hpw-can-we-help-today": "Tugufasha gute uyu munsi?",
+  "chatbot.how-can-we-help-today": "Twabafasha gute uyu munsi?",
+  "chatbot.type-here": "Andika ubutumwa bwanyu hano...",
   
 
   

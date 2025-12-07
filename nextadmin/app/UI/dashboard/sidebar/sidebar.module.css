@@ -1,0 +1,58 @@
+.container{
+    position: sticky;
+    top: 40px;
+}
+
+.user{
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+.useImage{
+    border-radius: 50%;
+    object-fit: cover;
+}
+.userDetail{
+    display: flex;
+    flex-direction: column;
+}
+.username{
+    font-size: 18px;
+    font-weight: 500;
+}
+.userTitle{
+    font-size: 14px;
+    color: var(--textSofter);
+}
+.list{
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.cat{
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--textSofter);
+    margin-top: 15px;
+    margin-bottom: 5px; 
+    display: block;
+    padding-left: 10px;
+}   
+
+.logout{
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+.logout:hover{
+    background-color:  #2a3346;
+}

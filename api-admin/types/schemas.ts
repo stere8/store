@@ -117,11 +117,11 @@ export const WishListValidationSchema: ZodType<WishListFormData> = z.object({
 
 export const OrderValidationSchema: ZodType<OrderFormData> = z.object({
   pmethod: z.string(),
-  discount: z.coerce.number().min(0).max(100000),
-  shipping: z.coerce.number().min(0).max(100000),
-  subTotal: z.coerce.number().min(0).max(100000),
-  tax: z.coerce.number().min(0).max(100000),
-  total: z.coerce.number().min(0).max(100000),
+  discount: z.coerce.number().min(0).max(100000000),
+  shipping: z.coerce.number().min(0).max(100000000),
+  subTotal: z.coerce.number().min(0).max(100000000),
+  tax: z.coerce.number().min(0).max(100000000),
+  total: z.coerce.number().min(0).max(100000000),
   user_id: z.string().optional(),
   cartItems: z
     .object({
@@ -219,7 +219,7 @@ export const productValidationSchema: ZodType<ProductFormData> = z.object({
     message:
       "format: no blank space (_), no special character (&,',/|...), min 4 and max 20 characters",
   }),
-  price: z.coerce.number().min(0).max(100000),
+  price: z.coerce.number().min(0).max(100000000),
   discount: z.coerce.number().min(0).max(100),
   unit: z.string(),
   weight: z.coerce.number().min(0).max(100),
@@ -394,12 +394,12 @@ export const shippingValidationSchema: ZodType<ShippingFormData> = z.object({
   status: z.enum(["draft", "publish", "archive"]),
   user_id: z.string().optional().nullable(),
   delay: z.coerce.number().min(0).max(360, "less than 360 days"),
-  fees: z.coerce.number().min(0).max(100000),
+  fees: z.coerce.number().min(0).max(100000000),
   region: z.string().array(),
-  fixed_amount: z.coerce.number().min(0).max(100000),
-  unit_price_weight: z.coerce.number().min(0).max(100000),
-  price_range_start: z.coerce.number().min(0).max(100000),
-  price_range_end: z.coerce.number().min(0).max(100000),
+  fixed_amount: z.coerce.number().min(0).max(100000000),
+  unit_price_weight: z.coerce.number().min(0).max(100000000),
+  price_range_start: z.coerce.number().min(0).max(100000000),
+  price_range_end: z.coerce.number().min(0).max(100000000),
   store: z.string().optional(),
 });
 // .refine((schema) => schema.price_range_end < schema.price_range_start, {

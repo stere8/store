@@ -318,6 +318,7 @@ export type ProductFormData = {
   weight: number;
   user_id?: string | null;
   inventory: "instock" | "outstock";
+  StoreId: string;
 };
 
 export type Image = {

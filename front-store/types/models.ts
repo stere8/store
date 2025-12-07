@@ -71,6 +71,7 @@ export type TypeTrackActivityModel = {
 };
 
 export type TypeProductModel = {
+  storeId: string;
   _id: string;
   featured: boolean;
   name: string;
@@ -467,3 +468,16 @@ export type TypeWishListModel = {
   status: statusWishListEnum;
 };
 export type statusWishListEnum = "draft" | "abandoned" | "completed";
+
+// 🧩 Chat Message Model
+export type TypeChatMessageModel = {
+  _id?: string;
+  user: string; // Clerk user ID (the buyer)
+  store: TypeStoreModel; // The seller store
+  product: TypeProductModel; // Product being discussed
+  sender: "user" | "store"; // Who sent the message
+  content: string;
+  timestamp: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
