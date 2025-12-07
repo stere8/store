@@ -9,13 +9,65 @@ public static class ProductsEndpoints
 {
     public static RouteGroupBuilder MapProductsEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("/", GetProducts);
+        group.MapGet("/", GetAllProducts);
+        group.MapGet("/{id:guid}", GetProductById);
         group.MapPost("/", CreateProduct);
-
+        group.MapPut("/{id:guid}", UpdateProduct);
+        group.MapDelete("/{id:guid}", DeleteProduct);
         return group;
     }
+    private static async Task<IResult> UpdateProduct(
+    AppDbContext db, Guid id, ProductUpdateDto dto)
+    {
+        var tenant = db.CurrentTenantId!;
 
-    private static async Task<IResult> GetProducts(AppDbContext db)
+        var product = await db.Products
+            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
+
+        if (product is null)
+            return Results.NotFound(new { error = "Product not found or inactive." });
+
+        if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
+            return Results.BadRequest(new { error = "Invalid product data." });
+
+        product.Name = dto.Name.Trim();
+        product.Description = dto.Description?.Trim();
+        product.Price = dto.Price;
+        product.StockQuantity = dto.Stock;
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(product);
+    }
+
+    private static async Task<IResult> DeleteProduct(AppDbContext db, Guid id)
+    {
+        var tenant = db.CurrentTenantId!;
+
+        var product = await db.Products
+            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant);
+
+        if (product is null)
+            return Results.NotFound();
+
+        product.Active = false;
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new { message = "Product deactivated." });
+    }
+
+
+    private static async Task<IResult> GetProductById(AppDbContext db, Guid id)
+    {
+        var tenant = db.CurrentTenantId!;
+
+        var product = await db.Products
+            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant);
+
+        return product is null ? Results.NotFound() : Results.Ok(product);
+    }
+
+    private static async Task<IResult> GetAllProducts(AppDbContext db)
     {
         var tenant = db.CurrentTenantId!;
 
