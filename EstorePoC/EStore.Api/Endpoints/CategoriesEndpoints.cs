@@ -12,17 +12,13 @@ public static class CategoriesEndpoints
         group.MapGet("/", GetCategories);
         group.MapPut("/{id:guid}", UpdateCategory);
         group.MapDelete("/{id:guid}", DeleteCategory);
-
         return group;
     }
 
-    // -------------------------------------------------------------
     // CREATE
-    // -------------------------------------------------------------
     private static async Task<IResult> CreateCategory(AppDbContext db, CategoryCreateDto dto)
     {
         var tenant = db.CurrentTenantId!;
-
         var exists = await db.Categories
             .AnyAsync(x => x.TenantId == tenant && x.Name == dto.Name.Trim());
 
@@ -45,9 +41,7 @@ public static class CategoriesEndpoints
         return Results.Created($"/api/categories/{c.Id}", c);
     }
 
-    // -------------------------------------------------------------
     // LIST
-    // -------------------------------------------------------------
     private static async Task<IResult> GetCategories(AppDbContext db)
     {
         var tenant = db.CurrentTenantId!;
@@ -59,7 +53,39 @@ public static class CategoriesEndpoints
         return Results.Ok(list);
     }
 
-    // -------------------------------------------------------------
     // UPDATE
-    // -------------------------------------------------------------
-    private
+    private static async Task<IResult> UpdateCategory(AppDbContext db, Guid id, CategoryCreateDto dto)
+    {
+        var tenant = db.CurrentTenantId!;
+        var category = await db.Categories
+            .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenant);
+
+        if (category is null)
+            return Results.NotFound(new { error = "Category not found." });
+
+        category.Name = dto.Name.Trim();
+        category.Description = dto.Description?.Trim();
+
+        await db.SaveChangesAsync();
+        return Results.Ok(category);
+    }
+
+    // DELETE
+    private static async Task<IResult> DeleteCategory(AppDbContext db, Guid id)
+    {
+        var tenant = db.CurrentTenantId!;
+        var category = await db.Categories
+            .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenant);
+
+        if (category is null)
+            return Results.NotFound(new { error = "Category not found." });
+
+        db.Categories.Remove(category);
+        await db.SaveChangesAsync();
+
+        return Results.NoContent();
+    }
+}
+
+// DTO
+public record CategoryCreateDto(string Name, string? Description);
