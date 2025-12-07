@@ -39,6 +39,7 @@ builder.Services.AddSwaggerGen();
 
 // Payment strategy placeholder
 builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>();
+builder.Services.AddHostedService<ReservationExpiryService>();
 
 var app = builder.Build();
 
