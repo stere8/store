@@ -4,13 +4,18 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy csproj and restore first (better caching)
-COPY EStore.Api.csproj ./
-RUN dotnet restore
+# Force NuGet to use Linux-safe package path
+ENV NUGET_PACKAGES=/root/.nuget/packages
 
-# Copy the rest of the source
+# Copy csproj and restore first
+COPY EStore.Api.csproj ./
+RUN dotnet restore --no-cache
+
+# Copy rest of the source
 COPY . ./
-RUN dotnet publish -c Release -o /app/publish
+
+# Publish
+RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # ================================
 # RUNTIME STAGE
@@ -18,10 +23,8 @@ RUN dotnet publish -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Render provides PORT env var
 ENV ASPNETCORE_URLS=http://0.0.0.0:${PORT}
 
 COPY --from=build /app/publish .
 
-# Start the API
 ENTRYPOINT ["dotnet", "EStore.Api.dll"]
