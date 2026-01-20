@@ -62,8 +62,12 @@ app.Use(async (ctx, next) =>
     var db = ctx.RequestServices.GetRequiredService<AppDbContext>();
     db.CurrentTenantId = tenant;
 
+    // Optional debug header
+    ctx.Response.Headers["X-Current-Tenant"] = tenant;
+
     await next();
 });
+
 
 // ===============================================================
 // DATABASE INIT
