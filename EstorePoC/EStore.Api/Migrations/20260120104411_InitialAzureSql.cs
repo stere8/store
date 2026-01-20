@@ -8,11 +8,27 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace EStore.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialAzureSql : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "Categories",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TenantId = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Active = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Categories", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "Locations",
                 columns: table => new
@@ -307,8 +323,8 @@ namespace EStore.Api.Migrations
                 columns: new[] { "Id", "ContactEmail", "CreatedAt", "DefaultExpiryHours", "Name", "Slug", "TimeZone" },
                 values: new object[,]
                 {
-                    { "chic-complex", "info@chic.rw", new DateTimeOffset(new DateTime(2025, 12, 7, 20, 44, 58, 588, DateTimeKind.Unspecified).AddTicks(1662), new TimeSpan(0, 0, 0, 0, 0)), 12, "Chic Complex", "chic-complex", "Africa/Kigali" },
-                    { "kigali-city-mall", "info@kcm.rw", new DateTimeOffset(new DateTime(2025, 12, 7, 20, 44, 58, 588, DateTimeKind.Unspecified).AddTicks(1659), new TimeSpan(0, 0, 0, 0, 0)), 24, "Kigali City Mall", "kigali-city-mall", "Africa/Kigali" }
+                    { "chic-complex", "info@chic.rw", new DateTimeOffset(new DateTime(2026, 1, 20, 10, 44, 10, 630, DateTimeKind.Unspecified).AddTicks(778), new TimeSpan(0, 0, 0, 0, 0)), 12, "Chic Complex", "chic-complex", "Africa/Kigali" },
+                    { "kigali-city-mall", "info@kcm.rw", new DateTimeOffset(new DateTime(2026, 1, 20, 10, 44, 10, 630, DateTimeKind.Unspecified).AddTicks(775), new TimeSpan(0, 0, 0, 0, 0)), 24, "Kigali City Mall", "kigali-city-mall", "Africa/Kigali" }
                 });
 
             migrationBuilder.CreateIndex(
@@ -434,6 +450,9 @@ namespace EStore.Api.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "Categories");
+
             migrationBuilder.DropTable(
                 name: "ReservationItems");
 

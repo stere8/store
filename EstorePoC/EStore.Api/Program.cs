@@ -12,16 +12,15 @@ var builder = WebApplication.CreateBuilder(args);
 // ===============================================================
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    var cs = builder.Configuration.GetConnectionString("DefaultConnection");
+    var cs =
+        Environment.GetEnvironmentVariable("DATABASE_URL")
+        ?? builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("Database connection string is required");
 
     options.UseSqlServer(cs, sql =>
     {
         sql.CommandTimeout(60);
-        sql.EnableRetryOnFailure(
-            maxRetryCount: 3,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorNumbersToAdd: null
-        );
+        sql.EnableRetryOnFailure();
     });
 
     if (builder.Environment.IsDevelopment())
@@ -30,6 +29,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.EnableDetailedErrors();
     }
 });
+
+
 
 // ===============================================================
 // CORE SERVICES
@@ -92,7 +93,9 @@ app.MapGroup("/api/customers").MapCustomersEndpoints();
 app.MapGroup("/api/categories").MapCategoriesEndpoints();
 app.MapGroup("/api/tenants").MapTenantsEndpoints();
 app.MapGroup("/api/admin").MapAdminEndpoints();
-
+// Add this before app.Run()
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+app.Urls.Add($"http://0.0.0.0:{port}");
 app.Run();
 
 // ===============================================================

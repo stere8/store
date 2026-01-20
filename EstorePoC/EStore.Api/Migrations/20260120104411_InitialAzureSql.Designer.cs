@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EStore.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251207204459_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260120104411_InitialAzureSql")]
+    partial class InitialAzureSql
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,34 @@ namespace EStore.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("EStore.Api.Models.Category", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Categories");
+                });
 
             modelBuilder.Entity("EStore.Api.Models.Customer", b =>
                 {
@@ -447,7 +475,7 @@ namespace EStore.Api.Migrations
                         {
                             Id = "kigali-city-mall",
                             ContactEmail = "info@kcm.rw",
-                            CreatedAt = new DateTimeOffset(new DateTime(2025, 12, 7, 20, 44, 58, 588, DateTimeKind.Unspecified).AddTicks(1659), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 20, 10, 44, 10, 630, DateTimeKind.Unspecified).AddTicks(775), new TimeSpan(0, 0, 0, 0, 0)),
                             DefaultExpiryHours = 24,
                             Name = "Kigali City Mall",
                             Slug = "kigali-city-mall",
@@ -457,7 +485,7 @@ namespace EStore.Api.Migrations
                         {
                             Id = "chic-complex",
                             ContactEmail = "info@chic.rw",
-                            CreatedAt = new DateTimeOffset(new DateTime(2025, 12, 7, 20, 44, 58, 588, DateTimeKind.Unspecified).AddTicks(1662), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 20, 10, 44, 10, 630, DateTimeKind.Unspecified).AddTicks(778), new TimeSpan(0, 0, 0, 0, 0)),
                             DefaultExpiryHours = 12,
                             Name = "Chic Complex",
                             Slug = "chic-complex",
