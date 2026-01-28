@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_URL || "https://estore-api-zxuh.onrender.com";
+
 const nextConfig = {
- 
+  env: {
+    NEXT_PUBLIC_API_URL: apiBaseUrl,
+  },
   reactStrictMode: false,
   images: {
     remotePatterns: [
