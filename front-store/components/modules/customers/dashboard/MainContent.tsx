@@ -12,15 +12,13 @@ import { FormattedMessage } from "react-intl";
 export default function MainContent() {
   const { user } = useUser();
   // fecthing client
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const fetcher: Fetcher<TypeOrderModel[], string> = async (url: string) => {
-    const token = await getToken();
     return await axios
       .get(url, {
         params: { user_id: userId },
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       })
       .then((res) => res.data.data)
@@ -29,7 +27,7 @@ export default function MainContent() {
   };
 
   const { data, isLoading } = useSWR<TypeOrderModel[]>(
-    process.env.NEXT_PUBLIC_API_URL + "/api/user/orders",
+    process.env.NEXT_PUBLIC_API_URL + "/api/orders",
     fetcher
   );
 

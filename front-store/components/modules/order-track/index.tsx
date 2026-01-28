@@ -27,20 +27,17 @@ import { FormattedMessage,useIntl } from "react-intl";
 
 export default function OrderTrack() {
   const router = useRouter();
-  const { getToken } = useAuth();
   const { isSignedIn } = useUser();
     const intl = useIntl();
   async function getRequest(
     url: string,
     { arg }: { arg: StoreTrackOrderData }
   ) {
-    const token = await getToken();
     return await axios
       .get(process.env.NEXT_PUBLIC_API_URL + url, {
         params: arg,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       })
       .then(async (res) => {
@@ -75,7 +72,7 @@ export default function OrderTrack() {
   });
 
   const { trigger: create, isMutating: isCreating } = useSWRMutation(
-    "/api/user/trackorders",
+    "/api/trackorders",
     getRequest /* options */
   );
 

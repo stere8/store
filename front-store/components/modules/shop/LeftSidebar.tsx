@@ -34,7 +34,7 @@ export default function LeftSidebar({
   //   const getTags = async () => {
   //     setLoading(true);
   //     await axios
-  //       .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/tags")
+  //       .get(process.env.NEXT_PUBLIC_API_URL + "/api/tags")
   //       .then((response) => {
   //         setTags(response.data.data);
   //       })

@@ -4,7 +4,7 @@ import axios from "axios";
 export const getCategory = async (slug: string) => {
   try {
     const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/public/categories?slug=" + slug
+      process.env.NEXT_PUBLIC_API_URL + "/api/categories?slug=" + slug
     );
     return response.data.data;
   } catch (error) {
@@ -15,7 +15,7 @@ export const getCategory = async (slug: string) => {
 export const getCategories = async () => {
   try {
     const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/public/categories"
+      process.env.NEXT_PUBLIC_API_URL + "/api/categories"
     );
     return response.data.data;
   } catch (error) {

@@ -48,7 +48,7 @@ export default function Newsletters() {
       };
 
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/public/sendemail`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/sendemail`,
         values
       );
 

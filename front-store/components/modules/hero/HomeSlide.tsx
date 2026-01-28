@@ -38,7 +38,7 @@ export default function HomeSlide({
     await axios
       .get(
         process.env.NEXT_PUBLIC_API_URL +
-          "/api/public/campaigns?campaignId=" +
+          "/api/campaigns?campaignId=" +
           item._id
       )
       .then(() => {})
