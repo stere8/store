@@ -1,63 +1,66 @@
 "use server";
-import { auth } from "@clerk/nextjs/server";
 import axios from "axios";
 
-export const getCart = async (_id: string) => {
+export const ensureCart = async (userId: string) => {
   try {
-    const { getToken } = auth();
-
-    const token = await getToken();
-
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/user/carts?_id=" + _id,
+    const response = await axios.post(
+      process.env.NEXT_PUBLIC_API_URL + "/api/carts/ensure",
       {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        user_id: userId,
       }
     );
     return response.data.data;
   } catch (error) {
-    return error;
-  }
-};
-<<<<<<< HEAD
-=======
-
-export const addToCart = async (cartId: string, productId: string, quantity: number) => {
-  try {
-    const response = await apiClient.post(`/api/carts/${cartId}/items`, {
-      productId,
-      quantity
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error adding to cart:', error);
+    console.error("Error ensuring cart:", error);
     throw error;
   }
 };
 
 export const getCart = async (cartId: string) => {
   try {
-    const response = await apiClient.get(`/api/carts/${cartId}`);
-    return response.data;
+    const response = await axios.get(
+      process.env.NEXT_PUBLIC_API_URL + `/api/carts/${cartId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data.data;
   } catch (error) {
-    console.error('Error fetching cart:', error);
+    console.error("Error fetching cart:", error);
     return null;
+  }
+};
+
+export const addToCart = async (
+  cartId: string,
+  productId: string,
+  quantity: number
+) => {
+  try {
+    const response = await axios.post(
+      process.env.NEXT_PUBLIC_API_URL + `/api/carts/${cartId}/items`,
+      {
+        productId,
+        quantity,
+      }
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error("Error adding to cart:", error);
+    throw error;
   }
 };
 
 export const removeFromCart = async (cartId: string, productId: string) => {
   try {
-    await apiClient.delete(`/api/carts/${cartId}/items/${productId}`);
+    await axios.delete(
+      process.env.NEXT_PUBLIC_API_URL + `/api/carts/${cartId}/items/${productId}`
+    );
     return true;
   } catch (error) {
-    console.error('Error removing from cart:', error);
+    console.error("Error removing from cart:", error);
     throw error;
   }
 };
-<<<<<<< HEAD
->>>>>>> origin/772d8p-codex/connect-.net-api-to-frontend
-=======
->>>>>>> origin/codex/connect-.net-api-to-frontend-epkqzt
