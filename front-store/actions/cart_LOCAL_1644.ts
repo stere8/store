@@ -57,7 +57,4 @@ export const removeFromCart = async (cartId: string, productId: string) => {
     throw error;
   }
 };
-<<<<<<< HEAD
 >>>>>>> origin/772d8p-codex/connect-.net-api-to-frontend
-=======
->>>>>>> origin/codex/connect-.net-api-to-frontend-epkqzt

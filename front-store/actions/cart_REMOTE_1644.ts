@@ -1,29 +1,17 @@
 "use server";
-import { auth } from "@clerk/nextjs/server";
-import axios from "axios";
+import apiClient from '@/lib/api-client';
 
-export const getCart = async (_id: string) => {
+export const ensureCart = async (customerId: string) => {
   try {
-    const { getToken } = auth();
-
-    const token = await getToken();
-
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/user/carts?_id=" + _id,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.data.data;
+    const response = await apiClient.post('/api/carts/ensure', {
+      customerId
+    });
+    return response.data;
   } catch (error) {
-    return error;
+    console.error('Error ensuring cart:', error);
+    throw error;
   }
 };
-<<<<<<< HEAD
-=======
 
 export const addToCart = async (cartId: string, productId: string, quantity: number) => {
   try {
@@ -57,7 +45,3 @@ export const removeFromCart = async (cartId: string, productId: string) => {
     throw error;
   }
 };
-<<<<<<< HEAD
->>>>>>> origin/772d8p-codex/connect-.net-api-to-frontend
-=======
->>>>>>> origin/codex/connect-.net-api-to-frontend-epkqzt
