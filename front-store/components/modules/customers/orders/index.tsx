@@ -11,16 +11,13 @@ import Container from "@/components/custom/Container";
 
 export default function Orders() {
   // fecthing client
-  const { getToken } = useAuth();
   const { userId } = useAuth();
   const fetcher: Fetcher<Order[], string> = async (url: string) => {
-    const token = await getToken();
     return await axios
       .get(url, {
         params: { user_id: userId },
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       })
       .then((res) => res.data.data)
@@ -29,7 +26,7 @@ export default function Orders() {
   };
 
   const { data, isLoading } = useSWR<Order[]>(
-    process.env.NEXT_PUBLIC_API_URL + "/api/user/orders",
+    process.env.NEXT_PUBLIC_API_URL + "/api/orders",
     fetcher
   );
 

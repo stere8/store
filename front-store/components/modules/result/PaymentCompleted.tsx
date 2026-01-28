@@ -5,7 +5,6 @@ import axios from "axios";
 import Loading from "@/components/custom/Loading";
 import Container from "@/components/custom/Container";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { RectangleButton } from "@/components/custom/RectangleButton";
@@ -15,21 +14,17 @@ export default function PaymentCompleted() {
   const router = useSearchParams();
   const routerPath = useRouter();
   const [loading, setLoading] = useState(false);
-  const { getToken } = useAuth();
-
   useEffect(() => {
     const getData = async () => {
-      const token = await getToken();
       setLoading(true);
       await axios
         .get(
           process.env.NEXT_PUBLIC_API_URL +
-            "/api/user/payments?session_id=" +
+            "/api/payments?session_id=" +
             router.get("session_id"),
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
           }
         )
@@ -42,7 +37,7 @@ export default function PaymentCompleted() {
     };
 
     if (router.get("session_id")) getData();
-  }, [router, getToken]);
+  }, [router]);
 
   return (
     <section className="py-20">
