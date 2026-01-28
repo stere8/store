@@ -56,7 +56,7 @@ export default function MainContent({
     const getProducts = async () => {
       setLoading(true);
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/products", {
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/products", {
           params: {
             filter: filter,
             minPrice: minPrice,

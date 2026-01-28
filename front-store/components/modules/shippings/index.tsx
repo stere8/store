@@ -64,7 +64,6 @@ import { useRouter } from "next/navigation";
 export default function Shipping({ cart }: { cart: TypeCartModel }) {
   const { userId, isSignedIn } = useAuth();
   const [loading, setLoading] = useState(false);
-  const { getToken } = useAuth();
   const [openCountry, setOpenCountry] = React.useState(false);
   const [country, setCountry] = React.useState("rwanda");
   const [newCartItems, setNewCartItems] = useState<CartItemForm[]>(
@@ -100,15 +99,13 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
     setTotal(cart.subTotal + shipping - coupon + tax);
     const getAddresses = async () => {
       setLoading(true);
-      const token = await getToken();
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/user/addresses", {
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/addresses", {
           params: {
             user_id: userId && userId,
           },
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
         })
         .then((response) => {
@@ -124,7 +121,7 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
     const getPMethods = async () => {
       setLoading(true);
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/pmethods")
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/payment-methods")
         .then((response) => {
           setPmethods(response.data.data);
         })
@@ -137,7 +134,7 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
     };
     getPMethods();
     getAddresses();
-  }, [userId, shipping, coupon, discount, cart.subTotal, getToken]);
+  }, [userId, shipping, coupon, discount, cart.subTotal]);
 
   const placeOrder = async () => {
     setLoading(true);
@@ -146,7 +143,6 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
       return;
     }
 
-    const token = await getToken();
     const checkShipping =
       newCartItems && newCartItems.find((i) => i.shipping === "undefined");
 
@@ -188,10 +184,9 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
     };
 
     await axios
-      .post(process.env.NEXT_PUBLIC_API_URL + "/api/user/orders", data, {
+      .post(process.env.NEXT_PUBLIC_API_URL + "/api/orders", data, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       })
       .then(async (response) => {
@@ -220,12 +215,10 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
 
   // 2. Form method
   async function postRequest(url: string, { arg }: { arg: AddressFormData }) {
-    const token = await getToken();
     return await axios
       .post(process.env.NEXT_PUBLIC_API_URL + url, arg, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       })
       .then(async (response) => {
@@ -246,13 +239,11 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
     url: string,
     { arg }: { arg: { _id: string | undefined } }
   ) {
-    const token = await getToken();
     return await axios
       .delete(process.env.NEXT_PUBLIC_API_URL + url, {
         params: arg,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       })
       .then(async (response) => {
@@ -271,12 +262,12 @@ export default function Shipping({ cart }: { cart: TypeCartModel }) {
   }
 
   const { trigger: create, isMutating: isCreating } = useSWRMutation(
-    "/api/user/addresses",
+    "/api/addresses",
     postRequest /* options */
   );
 
   const { trigger: updating, isMutating: isDeleting } = useSWRMutation(
-    "/api/user/addresses",
+    "/api/addresses",
     deleteRequest
   );
 

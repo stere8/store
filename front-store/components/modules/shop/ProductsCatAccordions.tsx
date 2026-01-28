@@ -18,7 +18,7 @@ export default function ProductsCatAccordions({
     const getCategories = async () => {
       setLoading(true);
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/categories")
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/categories")
         .then((response) => {
           setCategories(response.data.data);
         })

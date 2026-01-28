@@ -2,7 +2,7 @@ import { Rating } from "@mui/material";
 import axios from "axios";
 import React, { useState } from "react";
 import { Field, Formik, Form, ErrorMessage } from "formik";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LogInIcon, SendIcon } from "lucide-react";
@@ -23,7 +23,6 @@ export default function AddReview({
   reviews: TypeReviewModel[];
   setReviews: (value: TypeReviewModel[]) => void;
 }) {
-  const { getToken } = useAuth();
   const { user, isSignedIn } = useUser();
   const [rating, setRating] = useState<number | string>("");
   const [loading, setLoading] = useState(false);
@@ -86,16 +85,13 @@ export default function AddReview({
 
     setReviews([...reviews, data]);
 
-    const token = await getToken();
-
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/user/reviews`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reviews`,
         data,
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -214,7 +210,6 @@ export default function AddReview({
   reviews: TypeReviewModel[];
   setReviews: (value: TypeReviewModel[]) => void;
 }) {
-  const { getToken } = useAuth();
   const { user, isSignedIn } = useUser();
   const [rating, setRating] = useState("");
   const [loading, setLoading] = useState(false);
@@ -273,12 +268,10 @@ export default function AddReview({
     //TODO:check error
     //@ts-expect-error:  need to check later
     setReviews([...reviews, data]);
-    const token = await getToken();
     await axios
-      .post(process.env.NEXT_PUBLIC_API_URL + "/api/user/reviews", data, {
+      .post(process.env.NEXT_PUBLIC_API_URL + "/api/reviews", data, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       })
       .then((response) => {
