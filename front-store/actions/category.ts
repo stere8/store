@@ -1,24 +1,25 @@
 "use server";
-import axios from "axios";
+import { apiClient } from "@/lib/epoc-api";
+import { toFrontCategory } from "@/lib/epoc-mappers";
 
 export const getCategory = async (slug: string) => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/categories?slug=" + slug
-    );
-    return response.data.data;
+    const response = await apiClient.get("/api/categories");
+    const items = Array.isArray(response.data) ? response.data : [];
+    return items.map(toFrontCategory).find((c) => c.slug === slug) || null;
   } catch (error) {
-    return error;
+    console.error("Error fetching category", error);
+    return null;
   }
 };
 
 export const getCategories = async () => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/categories"
-    );
-    return response.data.data;
+    const response = await apiClient.get("/api/categories");
+    const items = Array.isArray(response.data) ? response.data : [];
+    return items.map(toFrontCategory);
   } catch (error) {
-    return error;
+    console.error("Error fetching categories", error);
+    return [];
   }
 };

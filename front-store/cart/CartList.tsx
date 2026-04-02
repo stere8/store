@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { getEStoreApiBaseUrl, getEStoreTenantId } from "@/lib/epoc-api";
 import { CartItem as TypeCartItem } from "@/types";
-import { CartItemForm } from "@/types/forms";
 import { IRootState } from "@/store";
 import { memoize } from "proxy-memoize";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -36,39 +36,44 @@ export default function Cart() {
       return;
     }
 
-    const reDefinedCartItems: CartItemForm[] = [];
-    for (let index = 0; index < cart.cartItems.length; index++) {
-      const element = cart.cartItems[index];
-      reDefinedCartItems.push({
-        store: element.store,
-        variant: element.variant._id,
-        productImage: element.productImage,
-        productName: element.productName,
-        qty: element.qty,
-      });
-    }
+    const apiBaseUrl = getEStoreApiBaseUrl();
+    const tenantId = getEStoreTenantId();
 
-    const data = {
-      cartItems: reDefinedCartItems,
-      subTotal: total,
-      user_id: user?.id,
-    };
-
-    await axios
-      .post(process.env.NEXT_PUBLIC_API_URL + "/api/carts/ensure", data, {
-        headers: {
-          "Content-Type": "application/json",
+    try {
+      const customerResponse = await axios.post(
+        `${apiBaseUrl}/api/customers`,
+        {
+          username: user?.id,
+          fullName: user?.fullName || user?.firstName || user?.id,
+          phoneNumber: `+250${(user?.id || "000000000").replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`,
+          email: user?.primaryEmailAddress?.emailAddress || null,
+          preferredLanguage: "en",
         },
-      })
-      .then((response) => {
-        const data = response.data;
-        router.push("/cart/" + data.data._id);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-      })
-      .finally(() => {});
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Tenant-Id": tenantId,
+          },
+        }
+      );
+
+      const ensureCartResponse = await axios.post(
+        `${apiBaseUrl}/api/carts/ensure`,
+        { customerId: customerResponse.data.id },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Tenant-Id": tenantId,
+          },
+        }
+      );
+
+      router.push(`/cart/${ensureCartResponse.data.id}`);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const [total, setTotal] = useState(0);
