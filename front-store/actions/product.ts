@@ -1,38 +1,41 @@
 "use server";
-import axios from "axios";
+import { apiClient } from "@/lib/epoc-api";
+import { toFrontProduct } from "@/lib/epoc-mappers";
 
 export const getProduct = async (slug: string) => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/products?slug=" + slug
-    );
-    return response.data.data;
+    const response = await apiClient.get("/api/products");
+    const items = Array.isArray(response.data) ? response.data : [];
+    const product = items.map(toFrontProduct).find((p) => p.slug === slug);
+    return product || null;
   } catch (error) {
-    return error;
+    console.error("Error fetching product by slug", error);
+    return null;
   }
 };
 
 export const getProducts = async () => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/products"
-    );
-    return response.data.data;
+    const response = await apiClient.get("/api/products");
+    const items = Array.isArray(response.data) ? response.data : [];
+    return items.map(toFrontProduct);
   } catch (error) {
-    return error;
+    console.error("Error fetching products", error);
+    return [];
   }
 };
 
 export const getProductSearch = async (search: string) => {
-  try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/products",
-      {
-        params: { search: search },
-      }
-    );
-    return response.data.data;
-  } catch (error) {
-    return error;
+  const products = await getProducts();
+  const normalizedSearch = search.trim().toLowerCase();
+
+  if (!normalizedSearch) {
+    return products;
   }
+
+  return products.filter(
+    (item) =>
+      item.name.toLowerCase().includes(normalizedSearch) ||
+      item.description.toLowerCase().includes(normalizedSearch)
+  );
 };

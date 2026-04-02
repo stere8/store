@@ -1,15 +1,34 @@
 "use server";
-import axios from "axios";
+import { apiClient } from "@/lib/epoc-api";
+import { toFrontCart } from "@/lib/epoc-mappers";
 
-export const ensureCart = async (userId: string) => {
+type EnsureCustomerInput = {
+  externalUserId: string;
+  fullName?: string | null;
+  email?: string | null;
+};
+
+export const ensureCustomer = async ({
+  externalUserId,
+  fullName,
+  email,
+}: EnsureCustomerInput) => {
+  const payload = {
+    username: externalUserId,
+    fullName: fullName || externalUserId,
+    phoneNumber: `+250${externalUserId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`,
+    email: email || null,
+    preferredLanguage: "en",
+  };
+
+  const response = await apiClient.post("/api/customers", payload);
+  return response.data;
+};
+
+export const ensureCart = async (customerId: string) => {
   try {
-    const response = await axios.post(
-      process.env.NEXT_PUBLIC_API_URL + "/api/carts/ensure",
-      {
-        user_id: userId,
-      }
-    );
-    return response.data.data;
+    const response = await apiClient.post("/api/carts/ensure", { customerId });
+    return response.data;
   } catch (error) {
     console.error("Error ensuring cart:", error);
     throw error;
@@ -18,15 +37,8 @@ export const ensureCart = async (userId: string) => {
 
 export const getCart = async (cartId: string) => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + `/api/carts/${cartId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    return response.data.data;
+    const response = await apiClient.get(`/api/carts/${cartId}`);
+    return toFrontCart(response.data);
   } catch (error) {
     console.error("Error fetching cart:", error);
     return null;
@@ -39,14 +51,11 @@ export const addToCart = async (
   quantity: number
 ) => {
   try {
-    const response = await axios.post(
-      process.env.NEXT_PUBLIC_API_URL + `/api/carts/${cartId}/items`,
-      {
-        productId,
-        quantity,
-      }
-    );
-    return response.data.data;
+    const response = await apiClient.post(`/api/carts/${cartId}/items`, {
+      productId,
+      quantity,
+    });
+    return toFrontCart(response.data);
   } catch (error) {
     console.error("Error adding to cart:", error);
     throw error;
@@ -55,9 +64,7 @@ export const addToCart = async (
 
 export const removeFromCart = async (cartId: string, productId: string) => {
   try {
-    await axios.delete(
-      process.env.NEXT_PUBLIC_API_URL + `/api/carts/${cartId}/items/${productId}`
-    );
+    await apiClient.delete(`/api/carts/${cartId}/items/${productId}`);
     return true;
   } catch (error) {
     console.error("Error removing from cart:", error);
