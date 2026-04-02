@@ -4,32 +4,32 @@ import axios from "axios";
 export const updateCampaign = async (id: string) => {
   try {
     const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/campaigns?_id=" + id
+      process.env.NEXT_PUBLIC_API_URL + "/api/user/campaigns?_id=" + id
     );
     return response.data.data;
   } catch (error) {
-    return error;
+    return [];;
   }
 };
 
 export const getCampaigns = async (slug: string) => {
   try {
     const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/slides?slug=" + slug
+      process.env.NEXT_PUBLIC_API_URL + "/api/public/slides?slug=" + slug
     );
     return response.data.data;
   } catch (error) {
-    return error;
+    return [];;
   }
 };
 
 export const getPages = async () => {
   try {
     const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/pages"
+      process.env.NEXT_PUBLIC_API_URL + "/api/public/pages"
     );
     return response.data.data;
   } catch (error) {
-    return error;
+    return [];;
   }
 };

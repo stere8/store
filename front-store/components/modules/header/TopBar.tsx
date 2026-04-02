@@ -14,6 +14,7 @@
 
 export default function TopBar() {
   //const [showTopBar, setShowTopBar] = useState(true);
+  return null;
 }
 //   // Client-side data fetching with SWR
 //   const fetcher: Fetcher<TypeSlideItemModel[], string> = (args) =>
@@ -25,7 +26,7 @@ export default function TopBar() {
 
 //   const { data } = useSWR<TypeSlideItemModel[]>(
 //     process.env.NEXT_PUBLIC_API_URL +
-//       "/api/slides?slug=hompage-top-banner",
+//       "/api/public/slides?slug=hompage-top-banner",
 //     fetcher
 //   );
 
@@ -33,7 +34,7 @@ export default function TopBar() {
 //   const refreshInterval =
 //     process.env.NODE_ENV === "development" ? 1000 : 86400000; // 1 second in dev, 24 hours in prod
 //   const { data: conf } = useSWR<TypeConfigurationModel>(
-//     process.env.NEXT_PUBLIC_API_URL + "/api/configurations",
+//     process.env.NEXT_PUBLIC_API_URL + "/api/public/configurations",
 //     fetcher2,
 //     {
 //       refreshInterval,

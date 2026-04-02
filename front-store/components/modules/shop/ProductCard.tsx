@@ -17,7 +17,13 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
     >
       <div className="relative ">
         <Image
-          src={item.images[0] && item.images[0].url}
+          src={
+    item.imageUrl &&
+    item.imageUrl !== "string" &&
+    item.imageUrl.startsWith("http")
+      ? item.imageUrl
+      : "/placeholder.png"
+  }
           width="200"
           height={0}
           alt=""
@@ -37,11 +43,11 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
             className="text-primary-500 text-sm"
             readOnly
             name="hover-feedback"
-            value={getRatingNote(item.reviews)}
+            value={getRatingNote(item.reviews || [])}
             precision={0.5}
           />
           <span className="text-gray-500 text-body-tiny-400">
-            ({item.reviews.length})
+            ({(item.reviews || []).length})
           </span>
         </div>
         <div>

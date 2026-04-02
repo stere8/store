@@ -25,7 +25,7 @@ export default function SidebarMenu({ className }: { className?: string }) {
   useEffect(() => {
     const getPages = async () => {
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/pages")
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/pages")
         .then((response) => {
           setPages(response.data.data);
         })
@@ -36,7 +36,7 @@ export default function SidebarMenu({ className }: { className?: string }) {
 
     const getCategories = async () => {
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/categories")
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/categories")
         .then((response) => {
           setCategories(response.data.data);
         })

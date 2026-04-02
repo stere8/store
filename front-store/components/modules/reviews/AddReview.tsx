@@ -2,7 +2,7 @@ import { Rating } from "@mui/material";
 import axios from "axios";
 import React, { useState } from "react";
 import { Field, Formik, Form, ErrorMessage } from "formik";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LogInIcon, SendIcon } from "lucide-react";
@@ -23,6 +23,7 @@ export default function AddReview({
   reviews: TypeReviewModel[];
   setReviews: (value: TypeReviewModel[]) => void;
 }) {
+  const { getToken } = useAuth();
   const { user, isSignedIn } = useUser();
   const [rating, setRating] = useState<number | string>("");
   const [loading, setLoading] = useState(false);
@@ -71,27 +72,31 @@ export default function AddReview({
     }
 
     const data = {
+      _id: Date.now().toString(),
       product: product._id,
       review: values.review,
-      rating: rating,
+      rating: Number(rating),
       user: {
         _id: user.id,
         fullName: user.fullName || "unknown",
         imageUrl: user.imageUrl,
       },
       likes: [],
-      createdAt: new Date().toJSON(),
+      createdAt: new Date(),
     };
 
     setReviews([...reviews, data]);
 
+    const token = await getToken();
+
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/reviews`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/reviews`,
         data,
         {
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -143,7 +148,7 @@ export default function AddReview({
 
             <div className="flex flex-col gap-10 mt-10">
               <Rating
-                onChange={(e) => setRating(e.target.value)}
+                onChange={(e) => setRating((e.target as HTMLInputElement).value)}
                 name="rating"
                 precision={1}
                 className="text-primary-500 text-3xl inline-flex gap-0.5"
@@ -210,6 +215,7 @@ export default function AddReview({
   reviews: TypeReviewModel[];
   setReviews: (value: TypeReviewModel[]) => void;
 }) {
+  const { getToken } = useAuth();
   const { user, isSignedIn } = useUser();
   const [rating, setRating] = useState("");
   const [loading, setLoading] = useState(false);
@@ -268,10 +274,12 @@ export default function AddReview({
     //TODO:check error
     //@ts-expect-error:  need to check later
     setReviews([...reviews, data]);
+    const token = await getToken();
     await axios
-      .post(process.env.NEXT_PUBLIC_API_URL + "/api/reviews", data, {
+      .post(process.env.NEXT_PUBLIC_API_URL + "/api/user/reviews", data, {
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       })
       .then((response) => {

@@ -33,7 +33,7 @@ export default function Categories({
       .then((res) => res.json())
       .then((res) => res.data);
   const { data, error, isLoading } = useSWR<TypeCategoryModel[]>(
-    process.env.NEXT_PUBLIC_API_URL + "/api/categories",
+    process.env.NEXT_PUBLIC_API_URL + "/api/public/categories",
     fetcher
   );
   if (error) return <div>Failed to load Api</div>;

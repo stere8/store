@@ -11,19 +11,16 @@ export const getDate = (date: Date) => {
   return newDate;
 };
 
-export const getRatingNote = (reviews: TypeReviewModel[]): number => {
+export const getRatingNote = (reviews?: TypeReviewModel[]): number => {
+  if (!reviews || reviews.length === 0) return 0;
+
   const ratingTotal = reviews.reduce(
     (accumulator: number, currentValue: TypeReviewModel) =>
-      accumulator + currentValue?.rating,
+      accumulator + (currentValue?.rating || 0),
     0
   );
-  const rating = (ratingTotal / reviews.length).toFixed(1);
 
-  if (!parseFloat(rating)) {
-    return 0;
-  }
-
-  return parseFloat(rating);
+  return parseFloat((ratingTotal / reviews.length).toFixed(1));
 };
 
 export const discountPrice = (price: number, discount: number): number => {

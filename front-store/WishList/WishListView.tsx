@@ -22,7 +22,7 @@ export default function WishListView() {
   const dispatch = useDispatch();
   const { WishList } = useSelector(memoize((state: IRootState) => ({ ...state })));
   const { user } = useUser();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -73,6 +73,7 @@ export default function WishListView() {
       return;
     }
 
+    const token = await getToken();
     const validItems = WishList.items.filter(
       (item): item is TypeWishListItem =>
         item &&
@@ -102,11 +103,12 @@ export default function WishListView() {
 
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/wishlist`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/wishlist`,
         data,
         {
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
         }
       );

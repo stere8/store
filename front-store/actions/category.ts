@@ -1,24 +1,37 @@
 "use server";
-import axios from "axios";
 
 export const getCategory = async (slug: string) => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/categories?slug=" + slug
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/public/categories?slug=${slug}`,
+      { cache: "no-store" }
     );
-    return response.data.data;
+
+    if (!res.ok) throw new Error("Failed to fetch category");
+
+    const data = await res.json();
+
+    return data?.data || null;
   } catch (error) {
-    return error;
+    console.error("getCategory error:", error);
+    return null; // ✅ NEVER return [];
   }
 };
 
 export const getCategories = async () => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/categories"
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/products`,
+      { cache: "no-store" }
     );
-    return response.data.data;
+
+    if (!res.ok) throw new Error("Failed to fetch categories");
+
+    const data = await res.json();
+
+    return data?.data || [];
   } catch (error) {
-    return error;
+    console.error("getCategories error:", error);
+    return []; // ✅ NEVER return [];
   }
 };

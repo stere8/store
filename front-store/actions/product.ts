@@ -1,38 +1,62 @@
 "use server";
-import axios from "axios";
 
 export const getProduct = async (slug: string) => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/products?slug=" + slug
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/products`,
+      { cache: "no-store" }
     );
-    return response.data.data;
+
+    if (!res.ok) throw new Error("Failed");
+
+    const data = await res.json();
+
+    return data?.[0] || null;
   } catch (error) {
-    return error;
+    console.error("getProduct error:", error);
+    return null;
   }
 };
 
 export const getProducts = async () => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/products"
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/products`,
+      { cache: "no-store" }
     );
-    return response.data.data;
+
+    if (!res.ok) throw new Error("Failed");
+
+    const data = await res.json();
+
+    const mapped = data.map((p: any) => ({
+      id: p.id,
+      title: p.name,
+      price: p.price,
+      image: p.imageUrl,
+    }));
+
+    console.log(mapped)
+
+    return mapped;
   } catch (error) {
-    return error;
+    console.error("getProducts error:", error);
+    return [];
   }
 };
 
 export const getProductSearch = async (search: string) => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/products",
-      {
-        params: { search: search },
-      }
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/products?search=${search}`,
+      { cache: "no-store" }
     );
-    return response.data.data;
+
+    if (!res.ok) throw new Error("Failed");
+
+    return await res.json();
   } catch (error) {
-    return error;
+    console.error("search error:", error);
+    return [];
   }
 };

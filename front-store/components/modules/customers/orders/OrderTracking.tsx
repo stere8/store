@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import useSWR, { Fetcher } from "swr";
 import Loading from "@/components/custom/Loading";
+import { useAuth } from "@clerk/nextjs";
 import LeftSidebar from "../LeftSidebar";
 import Container from "@/components/custom/Container";
 import { TypeTrackOrderModel } from "@/types/models";
@@ -26,12 +27,15 @@ import { RectangleButton } from "@/components/custom/RectangleButton";
 
 export default function OrderTracking({ _id }: { _id: string }) {
   // fecthing client
+  const { getToken } = useAuth();
   const fetcher: Fetcher<TypeTrackOrderModel, string> = async (url: string) => {
+    const token = await getToken();
     return await axios
       .get(url, {
         params: { _id: _id },
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       })
       .then((res) => res.data.data)
@@ -40,7 +44,7 @@ export default function OrderTracking({ _id }: { _id: string }) {
   };
 
   const { data, isLoading } = useSWR<TypeTrackOrderModel>(
-    process.env.NEXT_PUBLIC_API_URL + "/api/trackorders",
+    process.env.NEXT_PUBLIC_API_URL + "/api/user/trackorders",
     fetcher
   );
 
@@ -79,6 +83,7 @@ export default function OrderTracking({ _id }: { _id: string }) {
     // }
 
 
+    const token = await getToken();
     setLoading(true);
     const data = {
       delivered: true,
@@ -87,10 +92,11 @@ export default function OrderTracking({ _id }: { _id: string }) {
     };
 
     await axios
-      .put(process.env.NEXT_PUBLIC_API_URL + "/api/orderitems", data, {
+      .put(process.env.NEXT_PUBLIC_API_URL + "/api/user/orderitems", data, {
         params: { _id: values.orderitem._id },
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       })
       .then(async (response) => {

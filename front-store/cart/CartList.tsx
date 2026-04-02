@@ -24,6 +24,7 @@ export default function Cart() {
   const { isSignedIn } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { getToken } = useAuth();
 
   const proceedToShipping = async () => {
     setLoading(true);
@@ -31,6 +32,8 @@ export default function Cart() {
       router.push("/sign-in");
       return;
     }
+    const token = await getToken();
+
     if (cart.cartItems.length > 8) {
       setLoading(false);
       return;
@@ -55,9 +58,10 @@ export default function Cart() {
     };
 
     await axios
-      .post(process.env.NEXT_PUBLIC_API_URL + "/api/carts/ensure", data, {
+      .post(process.env.NEXT_PUBLIC_API_URL + "/api/user/carts", data, {
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       })
       .then((response) => {

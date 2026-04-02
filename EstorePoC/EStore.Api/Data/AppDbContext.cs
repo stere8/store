@@ -10,7 +10,6 @@ namespace EStore.Api.Data
 
         // DbSets
         public DbSet<Tenant> Tenants => Set<Tenant>();
-        public DbSet<Category> Categories => Set<Category>();
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Vendor> Vendors => Set<Vendor>();
         public DbSet<Customer> Customers => Set<Customer>();

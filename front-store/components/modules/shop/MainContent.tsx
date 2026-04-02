@@ -68,7 +68,7 @@ export default function MainContent({
           },
         })
         .then((response) => {
-          setProducts(response.data.data);
+          setProducts(response.data);
         })
         .catch((error) => {
           console.log(error.message);

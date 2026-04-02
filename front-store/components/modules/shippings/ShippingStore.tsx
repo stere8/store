@@ -61,7 +61,7 @@ export default function ShippingStore({
     const getShippings = async () => {
       setLoading(true);
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/shippings")
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/shippings")
         .then((response) => {
           setShippings(response.data.data);
         })

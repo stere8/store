@@ -1,35 +1,14 @@
 "use server";
-import axios from "axios";
 
-export const updateCampaign = async (id: string) => {
-  try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/campaigns?_id=" + id
-    );
-    return response.data.data;
-  } catch (error) {
-    return error;
-  }
+export const getCampaigns = async () => {
+  return []; // TEMP
 };
 
-export const getCampaigns = async (slug: string) => {
-  try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/slides?slug=" + slug
-    );
-    return response.data.data;
-  } catch (error) {
-    return error;
-  }
+export const getPages = async () => {
+  return []; // TEMP
 };
 
+// ✅ ADD THIS BACK
 export const getCampaign = async (slug: string) => {
-  try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/slides?slug=" + slug
-    );
-    return response.data.data.length > 0 ? response.data.data[0].slideItem : [];
-  } catch (error) {
-    return error;
-  }
+  return []; // TEMP (no API yet)
 };

@@ -19,7 +19,7 @@ export default function PopularBrand({
     const getBrands = async () => {
       setLoading(true);
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/brands")
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/brands")
         .then((response) => {
           setBrands(response.data.data);
         })

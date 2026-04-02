@@ -12,7 +12,7 @@ export default async function page({ params }: { params: { _id: string } }) {
   return (
     <>
       <Breadcrumbs page="wishlist" />
-      <Shipping wishlist={wishlist} />
+      <Shipping cart={wishlist} />
     </>
   );
 }

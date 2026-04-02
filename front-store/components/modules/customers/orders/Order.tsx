@@ -3,6 +3,7 @@ import React from "react";
 import axios from "axios";
 import useSWR, { Fetcher } from "swr";
 import Loading from "@/components/custom/Loading";
+import { useAuth } from "@clerk/nextjs";
 import LeftSidebar from "../LeftSidebar";
 import Container from "@/components/custom/Container";
 import { TypeOrderItemModel, TypeOrderModel } from "@/types/models";
@@ -13,12 +14,15 @@ import OrderItem from "./OrderItem";
 
 export default function Order({ _id }: { _id: string }) {
   // fecthing client
+  const { getToken } = useAuth();
   const fetcher: Fetcher<TypeOrderModel, string> = async (url: string) => {
+    const token = await getToken();
     return await axios
       .get(url, {
         params: { _id: _id },
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       })
       .then((res) => res.data.data)
@@ -27,7 +31,7 @@ export default function Order({ _id }: { _id: string }) {
   };
 
   const { data, isLoading } = useSWR<TypeOrderModel>(
-    process.env.NEXT_PUBLIC_API_URL + "/api/orders",
+    process.env.NEXT_PUBLIC_API_URL + "/api/user/orders",
     fetcher
   );
 

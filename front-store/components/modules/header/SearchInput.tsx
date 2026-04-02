@@ -23,7 +23,7 @@ export default function SearchInput({ className }: { className?: string }) {
     const search = e.currentTarget.value;
     if (search.length > 1) {
       await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/products", {
+        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/products", {
           params: {
             search: search,
           },
