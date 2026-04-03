@@ -2,10 +2,17 @@
 
 import { apiClient } from "@/lib/epoc-api";
 import {
+  createCategoryLookup,
   EMPTY_PRODUCT,
   toFrontProduct,
   toFrontReview,
 } from "@/lib/epoc-mappers";
+
+const loadCategoryLookup = async () => {
+  const response = await apiClient.get("/api/categories");
+  const items = Array.isArray(response.data) ? response.data : [];
+  return createCategoryLookup(items);
+};
 
 const getProductReviews = async (productId: string) => {
   try {
@@ -26,11 +33,14 @@ const getProductReviews = async (productId: string) => {
 
 export const getProduct = async (slug: string) => {
   try {
-    const response = await apiClient.get("/api/products");
+    const [response, categoryLookup] = await Promise.all([
+      apiClient.get("/api/products"),
+      loadCategoryLookup(),
+    ]);
     const items = Array.isArray(response.data) ? response.data : [];
 
     const product = items
-      .map(toFrontProduct)
+      .map((item) => toFrontProduct(item, categoryLookup))
       .find((p) => p.slug === slug);
 
     if (!product?._id) {
@@ -50,10 +60,13 @@ export const getProduct = async (slug: string) => {
 
 export const getProducts = async () => {
   try {
-    const response = await apiClient.get("/api/products");
+    const [response, categoryLookup] = await Promise.all([
+      apiClient.get("/api/products"),
+      loadCategoryLookup(),
+    ]);
     const items = Array.isArray(response.data) ? response.data : [];
 
-    return items.map(toFrontProduct);
+    return items.map((item) => toFrontProduct(item, categoryLookup));
   } catch (error) {
     console.error("Error fetching products", error);
     return [];
@@ -62,14 +75,17 @@ export const getProducts = async () => {
 
 export const getProductSearch = async (search: string) => {
   try {
-    const response = await apiClient.get("/api/products", {
-      params: { search: search.trim() },
-    });
+    const [response, categoryLookup] = await Promise.all([
+      apiClient.get("/api/products", {
+        params: { search: search.trim() },
+      }),
+      loadCategoryLookup(),
+    ]);
 
     const items = Array.isArray(response.data) ? response.data : [];
 
     if (items.length > 0) {
-      return items.map(toFrontProduct);
+      return items.map((item) => toFrontProduct(item, categoryLookup));
     }
   } catch {
     // Backend search might not exist → fallback below

@@ -11,8 +11,10 @@ obj/
 *.user
 *.swp
 *.DS_Store
-api-admin/.env
+frontadmin/.env
+frontadmin/.env.local
 front-store/.env
+front-store/.env.local
 /.vs/
 /.codex-temp/
 /EstorePoC/EStore.Api/appsettings.Development.json

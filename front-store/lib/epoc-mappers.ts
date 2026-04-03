@@ -14,6 +14,7 @@ type ApiProduct = {
   description?: string;
   price: number;
   imageUrl?: string;
+  categoryId?: string | null;
   category?: string;
   stockQuantity: number;
   createdAt?: string;
@@ -119,6 +120,9 @@ const buildCategory = (name?: string) => {
   } as any;
 };
 
+export const createCategoryLookup = (items: ApiCategory[]) =>
+  new Map(items.map((item) => [item.id, toFrontCategory(item)]));
+
 const buildStore = (product: ApiProduct) =>
   ({
     _id: product.vendorId ?? "",
@@ -174,9 +178,14 @@ export const toFrontCategory = (item: ApiCategory): Category => ({
   createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
 });
 
-export const toFrontProduct = (item: ApiProduct): Product => {
+export const toFrontProduct = (
+  item: ApiProduct,
+  categoryLookup?: Map<string, Category>
+): Product => {
   const imageUrl = item.imageUrl || placeholderImage;
-  const category = buildCategory(item.category);
+  const category =
+    (item.categoryId ? categoryLookup?.get(item.categoryId) : undefined) ||
+    buildCategory(item.category);
   const variant = buildVariant(item);
   const store = buildStore(item);
   const description = item.description?.trim() || item.name;

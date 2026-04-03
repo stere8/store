@@ -28,7 +28,7 @@ export default function SearchInput({ className }: { className?: string }) {
         const response = await apiClient.get("/api/products");
         const items = Array.isArray(response.data) ? response.data : [];
         const filtered = items
-          .map(toFrontProduct)
+          .map((item) => toFrontProduct(item))
           .filter(
             (item) =>
               item.name.toLowerCase().includes(search) ||

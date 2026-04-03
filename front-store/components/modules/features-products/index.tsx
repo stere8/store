@@ -1,14 +1,67 @@
 "use client";
 import Container from "@/components/custom/Container";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import LeftBanner from "./LeftBanner";
 import BrowserLink from "@/components/custom/BrowserLink";
 import ProductCard from "./ProductCard";
 import { cn } from "@/lib/utils";
 import { FormattedMessage } from "react-intl";
+import { apiClient } from "@/lib/epoc-api";
+import { createCategoryLookup, toFrontCategory, toFrontProduct } from "@/lib/epoc-mappers";
+import { TypeCategoryModel, TypeProductModel } from "@/types/models";
 
 export default function FeaturesProducts() {
   const [activeTab, setActiveTab] = useState("all");
+  const [categories, setCategories] = useState<TypeCategoryModel[]>([]);
+  const [products, setProducts] = useState<TypeProductModel[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCatalog = async () => {
+      setLoading(true);
+      try {
+        const [categoriesResponse, productsResponse] = await Promise.all([
+          apiClient.get("/api/categories"),
+          apiClient.get("/api/products"),
+        ]);
+
+        const categoryItems = Array.isArray(categoriesResponse.data)
+          ? categoriesResponse.data
+          : [];
+        const productItems = Array.isArray(productsResponse.data)
+          ? productsResponse.data
+          : [];
+
+        const categoryLookup = createCategoryLookup(categoryItems);
+        setCategories(categoryItems.map(toFrontCategory));
+        setProducts(
+          productItems.map((item) => toFrontProduct(item, categoryLookup))
+        );
+      } catch (error) {
+        console.error("Unable to load featured products", error);
+        setCategories([]);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCatalog();
+  }, []);
+
+  const tabs = useMemo(
+    () => [{ slug: "all", name: "All products" }, ...categories.slice(0, 5)],
+    [categories]
+  );
+
+  const filteredProducts = useMemo(() => {
+    if (activeTab === "all") {
+      return products;
+    }
+
+    return products.filter((item) => item.category?.slug === activeTab);
+  }, [activeTab, products]);
+
   return (
     <section className="my-[72px] w-full">
       <Container>
@@ -25,57 +78,36 @@ export default function FeaturesProducts() {
               </h3>
               <div className="flex gap-6">
                 <ul className="lg:flex flex-wrap gap-4 justify-between capitalize text-gray-600 text-body-sm-400 hidden">
-                  <li
-                    onClick={() => setActiveTab("all")}
-                    className={cn(
-                      "cursor-pointer",
-                      activeTab === "all" &&
-                        "text-black border-b-2 border-primary-500"
-                    )}
-                  >
-                    <FormattedMessage id={`main.all-products`} />
-                  </li>
-                  <li
-                    onClick={() => setActiveTab("smartphone")}
-                    className={cn(
-                      "cursor-pointer",
-                      activeTab === "smartphone" &&
-                        "text-black border-b-2 border-primary-500"
-                    )}
-                  >
-                    smart phone
-                  </li>
-                  <li
-                    onClick={() => setActiveTab("laptop")}
-                    className={cn(
-                      "cursor-pointer",
-                      activeTab === "laptop" &&
-                        "text-black border-b-2 border-primary-500"
-                    )}
-                  >
-                    laptop
-                  </li>
-                  <li
-                    onClick={() => setActiveTab("headphone")}
-                    className={cn(
-                      "cursor-pointer",
-                      activeTab === "headphone" &&
-                        "text-black border-b-2 border-primary-500"
-                    )}
-                  >
-                    headphones
-                  </li>
-                  <li
-                    onClick={() => setActiveTab("tv")}
-                    className={cn(
-                      "cursor-pointer",
-                      activeTab === "tv" &&
-                        "text-black border-b-2 border-primary-500"
-                    )}
-                  >
-                    tv
-                  </li>
+                  {tabs.map((tab) => (
+                    <li
+                      key={tab.slug}
+                      onClick={() => setActiveTab(tab.slug)}
+                      className={cn(
+                        "cursor-pointer",
+                        activeTab === tab.slug &&
+                          "text-black border-b-2 border-primary-500"
+                      )}
+                    >
+                      {tab.slug === "all" ? (
+                        <FormattedMessage id={`main.all-products`} />
+                      ) : (
+                        tab.name
+                      )}
+                    </li>
+                  ))}
                 </ul>
+
+                <select
+                  className="lg:hidden rounded-full border border-gray-200 px-4 py-2 text-body-sm-400"
+                  value={activeTab}
+                  onChange={(event) => setActiveTab(event.target.value)}
+                >
+                  {tabs.map((tab) => (
+                    <option key={tab.slug} value={tab.slug}>
+                      {tab.slug === "all" ? "All products" : tab.name}
+                    </option>
+                  ))}
+                </select>
 
                 <BrowserLink
                   name={`products`}
@@ -85,14 +117,19 @@ export default function FeaturesProducts() {
               </div>
             </div>
             <div className="flex flex-wrap gap-y-4 sm:justify-between xl:justify-between lg:gap-y-1 xl:gap-y-4">
-              <ProductCard />
-              <ProductCard />
-              <ProductCard />
-              <ProductCard />
-              <ProductCard />
-              <ProductCard />
-              <ProductCard />
-              <ProductCard />
+              {loading ? (
+                <p className="text-body-sm-400 text-gray-500">
+                  Loading featured products...
+                </p>
+              ) : filteredProducts.length > 0 ? (
+                filteredProducts
+                  .slice(0, 8)
+                  .map((item) => <ProductCard key={item._id} item={item} />)
+              ) : (
+                <p className="text-body-sm-400 text-gray-500">
+                  No products available for this category yet.
+                </p>
+              )}
             </div>
           </div>
         </div>
