@@ -1,4 +1,5 @@
 "use server";
+
 import { apiClient } from "@/lib/epoc-api";
 import { EMPTY_CART, toFrontCart } from "@/lib/epoc-mappers";
 
@@ -17,7 +18,10 @@ export const ensureCustomer = async ({
     const payload = {
       username: externalUserId,
       fullName: fullName || externalUserId,
-      phoneNumber: `+250${externalUserId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`,
+      phoneNumber: `+250${externalUserId
+        .replace(/\D/g, "")
+        .slice(0, 9)
+        .padEnd(9, "0")}`,
       email: email || null,
       preferredLanguage: "en",
     };

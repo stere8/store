@@ -6,10 +6,8 @@ import { mergeOpenGraph } from "@/lib/mergeOpenGraph";
 import React from "react";
 import { notFound } from "next/navigation";
 
-export const revalidate = 3600; // 1h
+export const revalidate = 3600;
 
-// Multiple versions of this page will be statically generated
-// using the `params` returned by `generateStaticParams`
 export default async function page({ params }: { params: { slug: string } }) {
   const product = await getProduct(params.slug);
   const products = await getProducts();
@@ -27,35 +25,31 @@ export default async function page({ params }: { params: { slug: string } }) {
   );
 }
 
-// automatically add any further dynamic segment in generateStaticParams for example if a new product has been approved by admin it will added statically cached
 export const dynamicParams = true;
 
-// Return a list of `params` to populate the [slug] dynamic segment
 export async function generateStaticParams() {
   return [];
 }
 
-// SEO Dynamic metadata
 export async function generateMetadata({
   params,
 }: {
   params: { slug: string; locale: string };
 }) {
   const product = await getProduct(params.slug);
+
   if (!product._id) {
     return {};
   }
 
   const images = product.images[0]?.url;
- 
+
   return {
     title: `Buy ${params.slug} - E-city`,
     description: "Online Ecommerce for selling anything electronics",
     icons: {
       icon: "/assets/images/logo_dark.svg",
     },
-
-    //For SEO: Sharing on social media twitter, whatsapp, Linkeidn etc
     openGraph: mergeOpenGraph({
       title: `Buy ${product.name.substring(0, 60)}`,
       url: `/${params.locale}/products/${params.slug}`,
