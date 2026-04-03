@@ -13,7 +13,7 @@
 // import useSWR, { Fetcher } from "swr";
 
 export default function TopBar() {
-  //const [showTopBar, setShowTopBar] = useState(true);
+  return null;
 }
 //   // Client-side data fetching with SWR
 //   const fetcher: Fetcher<TypeSlideItemModel[], string> = (args) =>

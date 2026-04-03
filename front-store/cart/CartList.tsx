@@ -1,11 +1,10 @@
 "use client";
-import React from "react";
+
+import React, { useEffect, useState } from "react";
 import Container from "@/components/custom/Container";
-import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
-import axios from "axios";
-import { getEStoreApiBaseUrl, getEStoreTenantId } from "@/lib/epoc-api";
+import { apiClient } from "@/lib/epoc-api";
 import { CartItem as TypeCartItem } from "@/types";
 import { IRootState } from "@/store";
 import { memoize } from "proxy-memoize";
@@ -27,103 +26,103 @@ export default function Cart() {
 
   const proceedToShipping = async () => {
     setLoading(true);
+
     if (!isSignedIn) {
       router.push("/sign-in");
       return;
     }
+
     if (cart.cartItems.length > 8) {
       setLoading(false);
       return;
     }
 
-    const apiBaseUrl = getEStoreApiBaseUrl();
-    const tenantId = getEStoreTenantId();
-
     try {
-      const customerResponse = await axios.post(
-        `${apiBaseUrl}/api/customers`,
-        {
-          username: user?.id,
-          fullName: user?.fullName || user?.firstName || user?.id,
-          phoneNumber: `+250${(user?.id || "000000000").replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`,
-          email: user?.primaryEmailAddress?.emailAddress || null,
-          preferredLanguage: "en",
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Tenant-Id": tenantId,
-          },
-        }
-      );
+      // 1. Ensure customer
+      const customerResponse = await apiClient.post("/api/customers", {
+        username: user?.id,
+        fullName: user?.fullName || user?.firstName || user?.id,
+        phoneNumber: `+250${(user?.id || "000000000")
+          .replace(/\D/g, "")
+          .slice(0, 9)
+          .padEnd(9, "0")}`,
+        email: user?.primaryEmailAddress?.emailAddress || null,
+        preferredLanguage: "en",
+      });
 
-      const ensureCartResponse = await axios.post(
-        `${apiBaseUrl}/api/carts/ensure`,
-        { customerId: customerResponse.data.id },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Tenant-Id": tenantId,
-          },
-        }
-      );
+      // 2. Ensure cart
+      const ensureCartResponse = await apiClient.post("/api/carts/ensure", {
+        customerId: customerResponse.data.id,
+      });
 
-      router.push(`/cart/${ensureCartResponse.data.id}`);
+      const cartId = ensureCartResponse.data.id;
+
+      // 3. Sync items to backend cart
+      for (const item of cart.cartItems) {
+        await apiClient.post(`/api/carts/${cartId}/items`, {
+          productId: item.variant._id,
+          quantity: item.qty,
+        });
+      }
+
+      // 4. Redirect
+      router.push(`/cart/${cartId}`);
     } catch (err) {
-      console.log(err);
+      console.error("Error proceeding to shipping:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const [total, setTotal] = useState(0);
   const subtotal =
     cart.cartItems.length > 0
       ? cart.cartItems.reduce(
-          (accumulator: number, currentValue: TypeCartItem) =>
-            accumulator +
-            discountPrice(
-              currentValue.variant.price,
-              currentValue.variant.discount
-            ) *
-              currentValue.qty,
+          (acc: number, item: TypeCartItem) =>
+            acc +
+            discountPrice(item.variant.price, item.variant.discount) *
+              item.qty,
           0
         )
       : 0;
+
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     setTotal(subtotal);
   }, [subtotal]);
 
-   return (
+  return (
     <section className="my-10">
       {loading && <Loading loading={loading} />}
+
       <Container>
         <div className="flex flex-col gap-12 items-start mt-20 xl:flex-row">
+          {/* TABLE */}
           <div className="relative overflow-x-auto flex-1 w-full">
-            <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400 cursor-move">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3">
+                  <th className="px-6 py-3">
                     <FormattedMessage id="cart.product" defaultMessage="Product" />
                   </th>
-                  <th scope="col" className="px-6 py-3">
+                  <th className="px-6 py-3">
                     <FormattedMessage id="cart.price" defaultMessage="Price" />
                   </th>
-                  <th scope="col" className="px-6 py-3">
+                  <th className="px-6 py-3">
                     <FormattedMessage id="cart.quantity" defaultMessage="Quantity" />
                   </th>
-                  <th scope="col" className="px-6 py-3">
+                  <th className="px-6 py-3">
                     <FormattedMessage id="cart.subtotal" defaultMessage="Subtotal" />
                   </th>
                   <th></th>
                 </tr>
               </thead>
+
               <tbody>
-                {cart.cartItems.length > 0 &&
-                  cart.cartItems.map((item: TypeCartItem, idx: number) => (
-                    <CartItem item={item} key={idx} />
-                  ))}
+                {cart.cartItems.map((item: TypeCartItem, idx: number) => (
+                  <CartItem item={item} key={idx} />
+                ))}
+
                 <tr>
                   <td colSpan={5}>
                     <div className="flex justify-between py-4">
@@ -145,8 +144,8 @@ export default function Cart() {
             </table>
           </div>
 
+          {/* CHECKOUT */}
           <Checkout
-            className=""
             loading={loading}
             subtotal={subtotal}
             total={total}

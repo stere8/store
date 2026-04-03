@@ -1,6 +1,7 @@
 "use server";
+
 import { apiClient } from "@/lib/epoc-api";
-import { toFrontCart } from "@/lib/epoc-mappers";
+import { EMPTY_CART, toFrontCart } from "@/lib/epoc-mappers";
 
 type EnsureCustomerInput = {
   externalUserId: string;
@@ -13,16 +14,24 @@ export const ensureCustomer = async ({
   fullName,
   email,
 }: EnsureCustomerInput) => {
-  const payload = {
-    username: externalUserId,
-    fullName: fullName || externalUserId,
-    phoneNumber: `+250${externalUserId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`,
-    email: email || null,
-    preferredLanguage: "en",
-  };
+  try {
+    const payload = {
+      username: externalUserId,
+      fullName: fullName || externalUserId,
+      phoneNumber: `+250${externalUserId
+        .replace(/\D/g, "")
+        .slice(0, 9)
+        .padEnd(9, "0")}`,
+      email: email || null,
+      preferredLanguage: "en",
+    };
 
-  const response = await apiClient.post("/api/customers", payload);
-  return response.data;
+    const response = await apiClient.post("/api/customers", payload);
+    return response.data;
+  } catch (error) {
+    console.error("Error ensuring customer", error);
+    return { id: "" };
+  }
 };
 
 export const ensureCart = async (customerId: string) => {
@@ -31,7 +40,7 @@ export const ensureCart = async (customerId: string) => {
     return response.data;
   } catch (error) {
     console.error("Error ensuring cart:", error);
-    throw error;
+    return { id: "" };
   }
 };
 
@@ -41,7 +50,7 @@ export const getCart = async (cartId: string) => {
     return toFrontCart(response.data);
   } catch (error) {
     console.error("Error fetching cart:", error);
-    return null;
+    return EMPTY_CART;
   }
 };
 
@@ -58,7 +67,7 @@ export const addToCart = async (
     return toFrontCart(response.data);
   } catch (error) {
     console.error("Error adding to cart:", error);
-    throw error;
+    return EMPTY_CART;
   }
 };
 
@@ -68,6 +77,6 @@ export const removeFromCart = async (cartId: string, productId: string) => {
     return true;
   } catch (error) {
     console.error("Error removing from cart:", error);
-    throw error;
+    return false;
   }
 };

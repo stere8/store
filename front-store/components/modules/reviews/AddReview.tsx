@@ -1,5 +1,5 @@
 import { Rating } from "@mui/material";
-import axios from "axios";
+import { apiClient } from "@/lib/epoc-api";
 import React, { useState } from "react";
 import { Field, Formik, Form, ErrorMessage } from "formik";
 import { useUser } from "@clerk/nextjs";
@@ -71,6 +71,7 @@ export default function AddReview({
     }
 
     const data = {
+      _id: `tmp-${Date.now()}`,
       product: product._id,
       review: values.review,
       rating: rating,
@@ -80,21 +81,13 @@ export default function AddReview({
         imageUrl: user.imageUrl,
       },
       likes: [],
-      createdAt: new Date().toJSON(),
+      createdAt: new Date(),
     };
 
-    setReviews([...reviews, data]);
+    setReviews([...reviews, data as unknown as TypeReviewModel]);
 
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/reviews`,
-        data,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await apiClient.post("/api/reviews", data);
 
       toast({
         variant: "default",
@@ -143,7 +136,7 @@ export default function AddReview({
 
             <div className="flex flex-col gap-10 mt-10">
               <Rating
-                onChange={(e) => setRating(e.target.value)}
+                onChange={(_, value) => setRating(value ?? "")}
                 name="rating"
                 precision={1}
                 className="text-primary-500 text-3xl inline-flex gap-0.5"
@@ -187,7 +180,7 @@ export default function AddReview({
 // BEFORE MODIFICATION
 {/*
   DO THE SAME HERE import { Rating } from "@mui/material";
-import axios from "axios";
+import { apiClient } from "@/lib/epoc-api";
 import React, { useState } from "react";
 import { Field, Formik, Form, ErrorMessage } from "formik";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -253,6 +246,7 @@ export default function AddReview({
       return;
     }
     const data = {
+      _id: `tmp-${Date.now()}`,
       product: product._id,
       review: values.review,
       rating: rating,
@@ -267,7 +261,7 @@ export default function AddReview({
 
     //TODO:check error
     //@ts-expect-error:  need to check later
-    setReviews([...reviews, data]);
+    setReviews([...reviews, data as unknown as TypeReviewModel]);
     await axios
       .post(process.env.NEXT_PUBLIC_API_URL + "/api/reviews", data, {
         headers: {

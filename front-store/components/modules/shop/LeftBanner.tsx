@@ -9,7 +9,9 @@ import React from "react";
 */
 
 
-export default function LeftBanner() {}
+export default function LeftBanner() {
+  return null;
+}
 /*  return ()
     <div className="border-2 border-primary-100 p-[32px] flex flex-col items-center">
       <div className="flex flex-col items-center gap-8">

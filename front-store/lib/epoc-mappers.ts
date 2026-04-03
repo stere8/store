@@ -1,27 +1,21 @@
-const placeholderImage = "/assets/images/placeholder-image.png";
+import { Cart, Category, Product } from "@/types";
 
-const toSlug = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
+/* ------------------ API TYPES ------------------ */
 
 type ApiCategory = {
   id: string;
   name: string;
-  description?: string | null;
+  description?: string;
 };
 
 type ApiProduct = {
   id: string;
   name: string;
-  description?: string | null;
+  description?: string;
   price: number;
+  imageUrl?: string;
+  category?: string;
   stockQuantity: number;
-  imageUrl?: string | null;
-  category?: string | null;
 };
 
 type ApiCartItem = {
@@ -37,94 +31,80 @@ type ApiCart = {
   items: ApiCartItem[];
 };
 
-export const toFrontCategory = (item: ApiCategory) => ({
+/* ------------------ CONSTANTS ------------------ */
+
+const placeholderImage = "/assets/images/placeholder.png";
+
+export const EMPTY_CATEGORY: Category = {
+  _id: "",
+  name: "",
+  slug: "",
+  description: "",
+  createdAt: new Date(),
+} as any;
+
+export const EMPTY_PRODUCT: Product = {
+  _id: "",
+  name: "",
+  slug: "",
+  description: "",
+  images: [],
+  price: 0,
+  category: EMPTY_CATEGORY,
+} as any;
+
+export const EMPTY_CART: Cart = {
+  _id: "",
+  cartItems: [],
+  total: 0,
+  subTotal: 0,
+  user_id: "",
+} as any;
+
+/* ------------------ HELPERS ------------------ */
+
+const toSlug = (value: string) =>
+  value.toLowerCase().replace(/\s+/g, "-");
+
+/* ------------------ CATEGORY ------------------ */
+
+export const toFrontCategory = (item: ApiCategory): Category => ({
+  ...EMPTY_CATEGORY,
   _id: item.id,
   name: item.name,
-  description: item.description ?? "",
   slug: toSlug(item.name),
-  image: placeholderImage,
-  user_id: "",
-  status: "publish" as const,
+  description: item.description ?? "",
   createdAt: new Date(),
-  subCategory: [],
 });
 
-export const toFrontProduct = (item: ApiProduct) => {
+/* ------------------ PRODUCT ------------------ */
+
+export const toFrontProduct = (item: ApiProduct): Product => {
   const slug = toSlug(item.name);
   const imageUrl = item.imageUrl || placeholderImage;
 
-  const baseVariant = {
-    _id: item.id,
-    name: "default",
-    color: {
-      _id: `${item.id}-default-color`,
-      name: "default",
-      description: "",
-      slug: "default",
-      images: [{ url: imageUrl }],
-      user_id: "",
-      status: "publish" as const,
-    },
-    colorImages: [{ url: imageUrl }],
-    sizeImages: [{ url: imageUrl }],
-    weight: 0,
-    inventory: item.stockQuantity > 0 ? ("instock" as const) : ("outstock" as const),
-    sku: `SKU-${item.id.slice(0, 8)}`,
-    price: item.price,
-    discount: 0,
-    seoDescription: item.description || item.name,
-    seoTitle: item.name,
-    seoSlug: slug,
-    status: "publish" as const,
-  };
-
   return {
-    storeId: "",
+    ...EMPTY_PRODUCT,
     _id: item.id,
-    featured: false,
     name: item.name,
     slug,
     description: item.description || item.name,
-    additionnal: item.description || item.name,
-    specification: item.description || item.name,
-    store: [{ _id: "estore", user_id: "", name: "EStore", description: "", logo: placeholderImage, products: [], orders: [], slides: [], subscription: {} as any, status: "online" as const, createdAt: new Date() }],
+    price: item.price,
+    images: [{ url: imageUrl }],
     category: item.category
       ? {
+          ...EMPTY_CATEGORY,
           _id: toSlug(item.category),
           name: item.category,
-          description: "",
           slug: toSlug(item.category),
-          image: placeholderImage,
-          user_id: "",
-          status: "publish" as const,
-          createdAt: new Date(),
-          subCategory: [],
         }
-      : undefined,
-    subCategories: [],
-    brand: { name: "EStore" },
-    details: [],
-    questions: [],
-    reviews: [],
-    productVariants: [baseVariant],
-    images: [{ url: imageUrl }],
-    price: item.price,
-    discount: 0,
-    seoDescription: item.description || item.name,
-    seoTitle: item.name,
-    seoSlug: slug,
-    status: "publish" as const,
-    inventory: item.stockQuantity > 0 ? ("instock" as const) : ("outstock" as const),
-    weight: 0,
-    sku: baseVariant.sku,
-    unit: "pcs",
-    user_id: "",
-    collections: [],
-    tags: [],
-  };
+      : EMPTY_CATEGORY,
+  } as any;
 };
 
-export const toFrontCart = (cart: ApiCart) => {
+/* ------------------ CART ------------------ */
+
+export const toFrontCart = (cart: ApiCart): Cart => {
   const cartItems = (cart.items || []).map((item) => {
     const product = item.product;
     const imageUrl = product?.imageUrl || placeholderImage;
@@ -133,7 +113,6 @@ export const toFrontCart = (cart: ApiCart) => {
     return {
       _id: item.id,
       cart: { _id: cart.id },
-      store: { _id: "estore", user_id: "", name: "EStore", description: "", logo: placeholderImage, products: [], orders: [], slides: [], subscription: {} as any, status: "online", createdAt: new Date() },
       variant: {
         _id: item.productId,
         price,
@@ -151,12 +130,11 @@ export const toFrontCart = (cart: ApiCart) => {
   );
 
   return {
+    ...EMPTY_CART,
     _id: cart.id,
     user_id: cart.customerId,
     cartItems,
     subTotal,
-    discount: 0,
-    shipping: 0,
     total: subTotal,
-  };
+  } as any;
 };
