@@ -88,6 +88,7 @@ export type TypeProductModel = {
   reviews: TypeReviewModel[];
   productVariants: TypeProductVariantModel[];
   images: Image[];
+  imageUrl?: string;
   price: number;
   discount: number;
   seoSlug?: string;

@@ -13,4 +13,6 @@ obj/
 *.DS_Store
 api-admin/.env
 front-store/.env
+/.vs/
+/.codex-temp/
 /EstorePoC/EStore.Api/appsettings.Development.json

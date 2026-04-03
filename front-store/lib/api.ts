@@ -1,8 +1,11 @@
-export async function getProducts(tenant = 'mall-a') {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API}/api/products`, {
-    headers: { 'X-Tenant': tenant },
-    cache: 'no-store'
+import { getEStoreApiBaseUrl, getEStoreTenantId } from "@/lib/epoc-api";
+
+export async function getProducts(_tenant?: string) {
+  const res = await fetch(`${getEStoreApiBaseUrl()}/api/products`, {
+    headers: { "X-Tenant-Id": getEStoreTenantId() },
+    cache: "no-store",
   });
-  if (!res.ok) throw new Error('Failed to fetch products');
+
+  if (!res.ok) throw new Error("Failed to fetch products");
   return res.json();
 }

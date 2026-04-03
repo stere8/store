@@ -4,7 +4,6 @@ import ProductsCatAccordions from "./ProductsCatAccordions";
 import ProductsFilters from "./Filters";
 import Loading from "@/components/custom/Loading";
 import LeftBanner from "./LeftBanner";
-import PopularBrand from "./PopularBrand";
 
 export default function LeftSidebar({
   minPrice,
@@ -83,13 +82,6 @@ export default function LeftSidebar({
                 ))}
             </div>
           </div> */}
-
-          <div className="flex flex-col gap-4">
-            <HeadingShop name="Popular brands" />
-            <div className="flex gap-4 h-full flex-wrap">
-              <PopularBrand setLoading={setLoading} setBrand={setBrand} />
-            </div>
-          </div>
         </div>
 
         <LeftBanner />

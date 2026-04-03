@@ -1,8 +1,7 @@
-
 "use client";
 
 import { TypeProductModel, TypeProductVariantModel } from "@/types/models";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn, discountPrice, getRatingNote } from "@/lib/utils";
 import { Rating } from "@mui/material";
 import CurrencyFormat from "@/components/custom/CurrencyFormat";
@@ -11,24 +10,22 @@ import ProductColors from "./ProductColors";
 import { Separator } from "@/components/ui/separator";
 import ProductSizes from "./ProductSizes";
 import ProductQty from "./ProductQty";
-import { ShoppingCart,MessageCircleQuestion } from "lucide-react";
+import { ShoppingCart, MessageCircleQuestion } from "lucide-react";
 import { RectangleButton } from "@/components/custom/RectangleButton";
 import ProductShare from "./ProductShare";
 import ProductPayments from "./ProductPayments";
 import { useDispatch, useSelector } from "react-redux";
 import { IRootState } from "@/store";
-import { CartItem } from "@/types";
+import { CartItem, WishListItem } from "@/types";
 import { addToCart, updateToCart } from "@/store/cartSlice";
 import { ToastAction } from "@/components/ui/toast";
 import { toast } from "@/hooks/use-toast";
 import Link from "next/link";
 import Loading from "@/components/custom/Loading";
 import { memoize } from "proxy-memoize";
-import axios from "axios";
-import getStripe from "@/lib/get-stripejs";
 import { FormattedMessage } from "react-intl";
-import { WishListItem } from "@/types";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 export default function ProductDetails({
   product,
@@ -45,134 +42,124 @@ export default function ProductDetails({
 }) {
   const { cart } = useSelector(memoize((state: IRootState) => ({ ...state })));
   const dispatch = useDispatch();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [qty, setQty] = useState<number>(1);
 
+  const selectedVariant =
+    activeOptionVariant ?? product.productVariants?.[0] ?? undefined;
+  const store = product.store?.[0];
+  const reviews = product.reviews || [];
+  const rating = getRatingNote(reviews);
+  const inventory = selectedVariant?.inventory ?? product.inventory;
+  const sku = selectedVariant?.sku ?? product.sku;
 
-  const itemForWishlist: WishListItem = {
-    store: product?.store[0].name,
-    productName: product?.name,
-    productImage: product?.images[0].url,
-    variant: activeOptionVariant!,
-    qty: qty,
-  };
+  const itemForWishlist: WishListItem = useMemo(
+    () => ({
+      store: store || product.storeId || "",
+      productName: product.name,
+      productImage: product.images?.[0]?.url || "/assets/products/image.png",
+      variant:
+        selectedVariant ||
+        ({
+          _id: product._id,
+          name: "Default option",
+          price: product.price,
+          discount: product.discount,
+          colorImages: product.images,
+          sizeImages: [],
+        } as any),
+      qty,
+    }),
+    [product, qty, selectedVariant, store]
+  );
 
-  const handleAddToCart = (p: TypeProductVariantModel) => {
-    if (!p) {
+  const handleAddToCart = (variant: TypeProductVariantModel | undefined) => {
+    if (!variant) {
       toast({
         variant: "destructive",
-        title: "OOps",
-        description: "Choose a variant",
+        title: "Oops",
+        description: "This product is not available yet.",
       });
       return;
     }
+
     setLoading(true);
-    const _id: string = `${p?._id}`;
-    const exist: CartItem | undefined = cart.cartItems.find(
-      (p: CartItem) => p.variant._id === _id
+
+    const existingItem: CartItem | undefined = cart.cartItems.find(
+      (entry: CartItem) => entry.variant._id === variant._id
     );
-    if (exist) {
-      const newCart = cart.cartItems.map((p: CartItem) => {
-        if (p === exist) {
-          return { ...p, qty: qty };
+
+    if (existingItem) {
+      const updatedCart = cart.cartItems.map((entry: CartItem) => {
+        if (entry.variant._id === existingItem.variant._id) {
+          return { ...entry, qty };
         }
-        return p;
+        return entry;
       });
-      dispatch(updateToCart(newCart));
+
+      dispatch(updateToCart(updatedCart));
     } else {
       dispatch(
         addToCart({
-          store: product?.store,
-          productName: product?.name,
-          productImage: product?.images[0].url,
-          variant: p,
-          qty: qty,
+          store: store || { _id: product.storeId, name: "Storefront Vendor" },
+          productName: product.name,
+          productImage:
+            product.images?.[0]?.url || "/assets/products/image.png",
+          variant,
+          qty,
         })
       );
     }
+
     toast({
       variant: "default",
-      title: "Well done ✔️",
-      description: "Product added to cart",
+      title: "Added to cart",
+      description: "You can continue shopping or open the cart.",
       action: (
-        <ToastAction altText={`Go to cart`}>
+        <ToastAction altText="Go to cart">
           <Link href={`/cart`}>Go to cart</Link>
         </ToastAction>
       ),
     });
+
     setLoading(false);
   };
 
-  const handleBuyNow = async (p: TypeProductVariantModel) => {
-    if (!p) {
-      toast({
-        variant: "destructive",
-        title: "Oops",
-        description: "Choose a variant",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/checkout/stripe-session`,
-        {
-          variantId: p._id,
-          quantity: qty,
-        }
-      );
-
-      const stripe = await getStripe();
-      await stripe!.redirectToCheckout({
-        sessionId: response.data.id,
-      });
-    } catch (err: unknown) {
-      console.error("Stripe checkout error:", err);
-      toast({
-        variant: "destructive",
-        title: "Checkout failed",
-        description: "Could not initiate Stripe session.",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleBuyNow = () => {
+    handleAddToCart(selectedVariant);
+    router.push("/cart");
   };
+
   const handleMessageSeller = () => {
-  const StoreId = product?.storeId;
-  if (!StoreId) {
     toast({
-      variant: "destructive",
-      title: "Oops",
-      description: "Seller not found.",
+      variant: "default",
+      title: "Seller messaging unavailable",
+      description:
+        "The current .NET API does not expose storefront chat yet.",
     });
-    return;
-  }
-
-  // navigate to a chat page — example: /chat/[StoreId]?product=[productId]
-  window.location.href = `/chat/${StoreId}?product=${product._id}`;
   };
-  
+
   return (
     <div className="flex flex-col gap-4">
       {loading && <Loading loading={true} />}
-      {/* Infos */}
+
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <div className="inline-flex flex-wrap gap-2">
             <Rating
               readOnly
               name="hover-feedback"
-              value={getRatingNote(product.reviews)}
+              value={rating}
               precision={0.5}
               className="text-primary-500 text-[20px] inline-flex gap-0.5"
             />
             <div className="flex gap-2 items-center">
               <span className="text-body-sm-600 text-black">
-                {getRatingNote(product.reviews)} Star Rating
+                {rating} Star Rating
               </span>
               <span className="text-gray-600 text-body-sm-400">
-                ({product.reviews.length} User feedback)
+                ({reviews.length} User feedback)
               </span>
             </div>
           </div>
@@ -185,7 +172,7 @@ export default function ProductDetails({
             <li>
               <span className="text-body-sm-400 text-gray-600 mr-2">Sku:</span>
               <strong className="text-body-sm-600 text-black">
-                {activeOptionVariant ? activeOptionVariant.sku : product.sku}
+                {sku || "Not set"}
               </strong>
             </li>
             <li>
@@ -193,7 +180,7 @@ export default function ProductDetails({
                 Brand:
               </span>
               <strong className="text-body-sm-600 text-black">
-                {product.brand && product.brand.name}
+                {product.brand?.name || "General"}
               </strong>
             </li>
           </ul>
@@ -205,14 +192,10 @@ export default function ProductDetails({
               <strong
                 className={cn(
                   "text-body-sm-600 text-black",
-                  product.inventory === "instock" && "text-success-500",
-                  activeOptionVariant?.inventory === "instock" &&
-                    "text-success-500"
+                  inventory === "instock" && "text-success-500"
                 )}
               >
-                {activeOptionVariant
-                  ? activeOptionVariant.inventory
-                  : product.inventory}
+                {inventory}
               </strong>
             </li>
             <li>
@@ -220,53 +203,50 @@ export default function ProductDetails({
                 Category:
               </span>
               <strong className="text-body-sm-600 text-black">
-                {product.category && product.category.name}
+                {product.category?.name || "Uncategorized"}
               </strong>
             </li>
           </ul>
         </div>
       </div>
 
-    {/* Prices */}
-    <div className="flex">
-      <div className="grid grid-cols-2">
-        {/* Fixed-size price container */}
-        <div className="flex gap-3 w-[300px] h-[40px] items-center">
-          {product.discount > 0 ? (
-            <>
-              <CurrencyFormat
-                value={discountPrice(product.price, product.discount)}
-                className="text-heading1 text-secondary-500 font-bold w-[300px] !max-w-[300px]"
-              />
+      <div className="flex">
+        <div className="grid grid-cols-2">
+          <div className="flex gap-3 w-[300px] h-[40px] items-center">
+            {product.discount > 0 ? (
+              <>
+                <CurrencyFormat
+                  value={discountPrice(product.price, product.discount)}
+                  className="text-heading1 text-secondary-500 font-bold w-[300px] !max-w-[300px]"
+                />
+                <CurrencyFormat
+                  value={product.price}
+                  className="text-bod-xl-400 line-through"
+                />
+              </>
+            ) : (
               <CurrencyFormat
                 value={product.price}
-                className="text-bod-xl-400 line-through"
+                className="!text-heading1 text-secondary-500 font-bold w-[300px] !max-w-[300px]"
               />
-            </>
-          ) : (
-            <CurrencyFormat
-              value={product.price}
-              className="!text-heading1 text-secondary-500 font-bold w-[300px] !max-w-[300px]"
-            />
+            )}
+          </div>
+
+          {product.discount > 0 && (
+            <Badge variant="warning" className="ms-auto">
+              {product.discount}% OFF
+            </Badge>
           )}
         </div>
-
-        {/* Discount badge if applicable */}
-        {product.discount > 0 && (
-          <Badge variant="warning" className="ms-auto">
-            {product.discount}% OFF
-          </Badge>
-        )}
-      </div>
       </div>
 
       <Separator />
       <div className="flex flex-wrap justify-between gap-4">
-        {product.productVariants.length > 0 && (
+        {colors.length > 0 && (
           <ProductColors
             setActiveOption={setActiveOption}
             variants={colors}
-            activeOptionVariant={activeOptionVariant}
+            activeOptionVariant={selectedVariant}
           />
         )}
         {activeSizes && activeSizes.length > 0 && activeSizes[0].size && (
@@ -280,7 +260,6 @@ export default function ProductDetails({
       <div className="flex flex-wrap md:flex-nowrap justify-between gap-4 mt-4">
         <ProductQty qty={qty} setQty={setQty} />
 
-        {/* 👇 New Message Seller button */}
         <RectangleButton
           onClick={handleMessageSeller}
           size="sm"
@@ -293,17 +272,7 @@ export default function ProductDetails({
         </RectangleButton>
 
         <RectangleButton
-          onClick={() => {
-            if (activeOptionVariant) {
-              handleAddToCart(activeOptionVariant);
-            } else {
-              toast({
-                variant: "destructive",
-                title: "Oops",
-                description: "Choose a variant",
-              });
-            }
-          }}
+          onClick={() => handleAddToCart(selectedVariant)}
           className="!py-4"
           variant="primary"
           size="lg"
@@ -313,23 +282,12 @@ export default function ProductDetails({
         </RectangleButton>
 
         <RectangleButton
-          onClick={() => {
-            if (activeOptionVariant) {
-              handleBuyNow(activeOptionVariant);
-            } else {
-              toast({
-                variant: "destructive",
-                title: "Oops",
-                description: "Choose a variant",
-              });
-            }
-          }}
+          onClick={handleBuyNow}
           size="sm"
           variant="primary-outline"
           icon="none"
           className="w-full"
         >
-        
           <FormattedMessage id="product.buy-now" defaultMessage="Buy Now" />
         </RectangleButton>
       </div>

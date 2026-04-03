@@ -67,7 +67,7 @@ export default function WishListMenu({
                 >
                   <ProductCardMini
                     item={item}
-                    onRemove={handleRemove}
+                    onRemove={(entry) => handleRemove(entry as WishListItem)}
                     compact
                   />
                 </m.div>

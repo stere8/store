@@ -1,37 +1,32 @@
 "use server";
 
+import { apiClient } from "@/lib/epoc-api";
+import { EMPTY_CATEGORY, toFrontCategory } from "@/lib/epoc-mappers";
+
 export const getCategory = async (slug: string) => {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/public/categories?slug=${slug}`,
-      { cache: "no-store" }
+    const response = await apiClient.get("/api/categories");
+    const items = Array.isArray(response.data) ? response.data : [];
+
+    return (
+      items
+        .map(toFrontCategory)
+        .find((c) => c.slug === slug) || EMPTY_CATEGORY
     );
-
-    if (!res.ok) throw new Error("Failed to fetch category");
-
-    const data = await res.json();
-
-    return data?.data || null;
   } catch (error) {
-    console.error("getCategory error:", error);
-    return null; // ✅ NEVER return [];
+    console.error("Error fetching category", error);
+    return EMPTY_CATEGORY;
   }
 };
 
 export const getCategories = async () => {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/products`,
-      { cache: "no-store" }
-    );
+    const response = await apiClient.get("/api/categories");
+    const items = Array.isArray(response.data) ? response.data : [];
 
-    if (!res.ok) throw new Error("Failed to fetch categories");
-
-    const data = await res.json();
-
-    return data?.data || [];
+    return items.map(toFrontCategory);
   } catch (error) {
-    console.error("getCategories error:", error);
-    return []; // ✅ NEVER return [];
+    console.error("Error fetching categories", error);
+    return [];
   }
 };

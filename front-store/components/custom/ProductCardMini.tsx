@@ -1,4 +1,4 @@
-import { CartItem } from "@/types";
+import { CartItem, WishListItem } from "@/types";
 import Image from "next/image";
 import React from "react";
 import CurrencyFormat from "./CurrencyFormat";
@@ -6,8 +6,8 @@ import { X } from "lucide-react";
 import { discountPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 type ProductCardMiniProps = {
-  item: CartItem;
-  onRemove: (item: CartItem) => void;
+  item: CartItem | WishListItem;
+  onRemove: (item: CartItem | WishListItem) => void;
   compact?: boolean;
 };
 

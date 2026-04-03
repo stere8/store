@@ -88,7 +88,8 @@ export default function WishListView() {
     }
 
     const reDefineditems: WishListItemForm[] = validItems.map((element) => ({
-      store: element.store,
+      store:
+        typeof element.store === "string" ? element.store : element.store._id,
       variant: element.variant._id,
       productImage: element.productImage,
       productName: element.productName,

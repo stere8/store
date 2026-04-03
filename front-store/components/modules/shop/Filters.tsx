@@ -2,7 +2,6 @@ import { Input } from "@/components/custom/Input";
 import React, { useState } from "react";
 import ProductsCatAccordions from "./ProductsCatAccordions";
 import HeadingShop from "@/components/custom/HeadingShop";
-import PopularBrand from "./PopularBrand";
 // import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 //import { Label } from "@/components/ui/label";
 import { FormattedMessage } from "react-intl";
@@ -104,13 +103,6 @@ export default function Filters({
           <div className="lg:hidden flex flex-col gap-4  w-full">
             <HeadingShop name="categories" />
             <ProductsCatAccordions setCategory={setCategory} />
-          </div>
-
-          <div className="lg:hidden flex flex-col gap-4 ">
-            <HeadingShop name="Popular brands" />
-            <div className="flex gap-4 h-full flex-wrap">
-              <PopularBrand setLoading={setLoading} setBrand={setBrand} />
-            </div>
           </div>
         </div>
         {/* <div className="flex flex-col gap-4">

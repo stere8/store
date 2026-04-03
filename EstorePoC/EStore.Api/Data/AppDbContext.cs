@@ -12,6 +12,7 @@ namespace EStore.Api.Data
         public DbSet<Tenant> Tenants => Set<Tenant>();
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Vendor> Vendors => Set<Vendor>();
+        public DbSet<Category> Categories => Set<Category>();
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<Product> Products => Set<Product>();
         public DbSet<Reservation> Reservations => Set<Reservation>();
@@ -73,6 +74,16 @@ namespace EStore.Api.Data
                 e.HasIndex(x => new { x.TenantId, x.PhoneNumber }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.Username }).IsUnique();
+            });
+
+            // Category
+            m.Entity<Category>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.Name).HasMaxLength(160).IsRequired();
+
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
             });
 
             // Product
@@ -164,6 +175,7 @@ namespace EStore.Api.Data
             // Global query filters (apply tenant scoping)
             m.Entity<Location>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Vendor>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<Category>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Customer>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Product>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Reservation>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);

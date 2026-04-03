@@ -1,62 +1,91 @@
 "use server";
 
+import { apiClient } from "@/lib/epoc-api";
+import {
+  EMPTY_PRODUCT,
+  toFrontProduct,
+  toFrontReview,
+} from "@/lib/epoc-mappers";
+
+const getProductReviews = async (productId: string) => {
+  try {
+    const response = await apiClient.get(`/api/products/${productId}/reviews`);
+    const payload = response.data;
+    const items = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+      ? payload.items
+      : [];
+
+    return items.map(toFrontReview);
+  } catch (error) {
+    console.error("Error fetching product reviews", error);
+    return [];
+  }
+};
+
 export const getProduct = async (slug: string) => {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/products`,
-      { cache: "no-store" }
-    );
+    const response = await apiClient.get("/api/products");
+    const items = Array.isArray(response.data) ? response.data : [];
 
-    if (!res.ok) throw new Error("Failed");
+    const product = items
+      .map(toFrontProduct)
+      .find((p) => p.slug === slug);
 
-    const data = await res.json();
+    if (!product?._id) {
+      return EMPTY_PRODUCT;
+    }
 
-    return data?.[0] || null;
+    const reviews = await getProductReviews(product._id);
+    return {
+      ...product,
+      reviews,
+    };
   } catch (error) {
-    console.error("getProduct error:", error);
-    return null;
+    console.error("Error fetching product by slug", error);
+    return EMPTY_PRODUCT;
   }
 };
 
 export const getProducts = async () => {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/products`,
-      { cache: "no-store" }
-    );
+    const response = await apiClient.get("/api/products");
+    const items = Array.isArray(response.data) ? response.data : [];
 
-    if (!res.ok) throw new Error("Failed");
-
-    const data = await res.json();
-
-    const mapped = data.map((p: any) => ({
-      id: p.id,
-      title: p.name,
-      price: p.price,
-      image: p.imageUrl,
-    }));
-
-    console.log(mapped)
-
-    return mapped;
+    return items.map(toFrontProduct);
   } catch (error) {
-    console.error("getProducts error:", error);
+    console.error("Error fetching products", error);
     return [];
   }
 };
 
 export const getProductSearch = async (search: string) => {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/products?search=${search}`,
-      { cache: "no-store" }
-    );
+    const response = await apiClient.get("/api/products", {
+      params: { search: search.trim() },
+    });
 
-    if (!res.ok) throw new Error("Failed");
+    const items = Array.isArray(response.data) ? response.data : [];
 
-    return await res.json();
-  } catch (error) {
-    console.error("search error:", error);
-    return [];
+    if (items.length > 0) {
+      return items.map(toFrontProduct);
+    }
+  } catch {
+    // Backend search might not exist → fallback below
   }
+
+  // Fallback (client-side search)
+  const products = await getProducts();
+  const normalizedSearch = search.trim().toLowerCase();
+
+  if (!normalizedSearch) {
+    return products;
+  }
+
+  return products.filter(
+    (item) =>
+      item.name.toLowerCase().includes(normalizedSearch) ||
+      item.description.toLowerCase().includes(normalizedSearch)
+  );
 };

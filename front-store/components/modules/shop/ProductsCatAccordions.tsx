@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { TypeCategoryModel } from "@/types/models";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Loading from "@/components/custom/Loading";
+import { apiClient } from "@/lib/epoc-api";
+import { toFrontCategory } from "@/lib/epoc-mappers";
 
 export default function ProductsCatAccordions({
   setCategory,
@@ -17,17 +18,15 @@ export default function ProductsCatAccordions({
   useEffect(() => {
     const getCategories = async () => {
       setLoading(true);
-      await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/public/categories")
-        .then((response) => {
-          setCategories(response.data.data);
-        })
-        .catch((error) => {
-          console.log(error.message);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      try {
+        const response = await apiClient.get("/api/categories");
+        const items = Array.isArray(response.data) ? response.data : [];
+        setCategories(items.map(toFrontCategory));
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
     };
     getCategories();
   }, []);
@@ -42,7 +41,7 @@ export default function ProductsCatAccordions({
               .slice(0, 20)
               .map((item: TypeCategoryModel, idx: number) => (
                 <div
-                  onClick={() => setCategory(item._id)}
+                  onClick={() => setCategory(item.slug)}
                   className="flex items-center gap-[20px]"
                   key={idx}
                 >

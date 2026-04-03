@@ -1,15 +1,32 @@
 using EStore.Api.Data;
+using EStore.Api.Endpoints;
 using EStore.Api.Models;
 using EStore.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
-builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("estore"));
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.UseSqlServer(connectionString);
+        return;
+    }
+
+    options.UseInMemoryDatabase("estore");
+});
 builder.Services.AddCors(options => options.AddPolicy("any", p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -38,6 +55,10 @@ app.Use(async (ctx, next) =>
 
 // Health
 app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTimeOffset.UtcNow }));
+
+// Reuse the endpoint modules for routes the storefront already depends on.
+app.MapGroup("/api/categories").MapCategoriesEndpoints();
+app.MapGroup("/api/customers").MapCustomersEndpoints();
 
 // =======================================================================
 // LOCATIONS
@@ -209,20 +230,32 @@ app.MapPost("/api/carts/{cartId:guid}/items", async (AppDbContext db, Guid cartI
     var existing = cart.Items.FirstOrDefault(i => i.ProductId == dto.ProductId);
     if (existing is null)
     {
-        cart.Items.Add(new ShoppingCartItem
+        db.ShoppingCartItems.Add(new ShoppingCartItem
         {
+            Id = Guid.NewGuid(),
+            ShoppingCartId = cart.Id,
             ProductId = dto.ProductId,
-            Quantity = dto.Quantity
+            Quantity = dto.Quantity,
+            UnitPrice = product.Price,
+            LineTotal = product.Price * dto.Quantity
         });
     }
     else
     {
         existing.Quantity += dto.Quantity;
+        existing.UnitPrice = product.Price;
+        existing.LineTotal = product.Price * existing.Quantity;
     }
 
     cart.UpdatedAt = DateTimeOffset.UtcNow;
     await db.SaveChangesAsync();
-    return Results.Ok(cart);
+
+    var hydratedCart = await db.ShoppingCarts
+        .Include(c => c.Items)
+        .ThenInclude(i => i.Product)
+        .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenant);
+
+    return Results.Ok(hydratedCart ?? cart);
 });
 
 // Get a cart with items
@@ -335,6 +368,7 @@ app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dt
         reservation.Items.Add(new ReservationItem
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             ReservationId = reservation.Id,
             ProductId = prod.Id,
             Quantity = item.Quantity,
@@ -350,6 +384,30 @@ app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dt
     db.Reservations.Add(reservation);
     await db.SaveChangesAsync();
     return Results.Created($"/api/reservations/{reservation.Id}", reservation);
+});
+
+// Get a reservation by id
+app.MapGet("/api/reservations/{reservationId:guid}", async (AppDbContext db, Guid reservationId) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var reservation = await db.Reservations
+        .Include(r => r.Items)
+        .FirstOrDefaultAsync(r => r.Id == reservationId && r.TenantId == tenant);
+
+    return reservation is null ? Results.NotFound() : Results.Ok(reservation);
+});
+
+// List reservations for a customer
+app.MapGet("/api/reservations/customer/{customerId:guid}", async (AppDbContext db, Guid customerId) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var reservations = await db.Reservations
+        .Include(r => r.Items)
+        .Where(r => r.TenantId == tenant && r.CustomerId == customerId)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+
+    return Results.Ok(reservations);
 });
 
 // List reservations for a vendor with optional filters
@@ -520,6 +578,157 @@ app.MapPost("/api/reservations/maintenance/expire", async (AppDbContext db) =>
     await db.SaveChangesAsync();
     return Results.Ok(new { expired = toExpire.Count });
 });
+
+void SeedDemoCatalog(WebApplication webApp)
+{
+    using var scope = webApp.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    db.Database.EnsureCreated();
+
+    const string tenantId = "kigali-city-mall";
+
+    var vendor = db.Vendors.FirstOrDefault(v => v.TenantId == tenantId);
+    if (vendor is null)
+    {
+        vendor = new Vendor
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            DisplayName = "Kigali City Electronics",
+            LegalName = "Kigali City Electronics Ltd",
+            ContactPhone = "+250788000001",
+            ContactEmail = "hello@kcm.rw",
+            Description = "Demo storefront inventory for the public shop.",
+            Active = true,
+            Verified = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        db.Vendors.Add(vendor);
+    }
+
+    if (!db.Categories.Any(c => c.TenantId == tenantId))
+    {
+        db.Categories.AddRange(
+            new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "Electronics",
+                Description = "Phones, audio, and accessories.",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "Home Office",
+                Description = "Desk essentials and productivity devices.",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "Wearables",
+                Description = "Smart devices you can carry every day.",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            }
+        );
+    }
+
+    if (!db.Products.Any(p => p.TenantId == tenantId))
+    {
+        db.Products.AddRange(
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                VendorId = vendor.Id,
+                Name = "Orion Smart Speaker",
+                Description = "Compact wireless speaker with room-filling sound.",
+                Price = 129.99m,
+                StockQuantity = 18,
+                Category = "Electronics",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                VendorId = vendor.Id,
+                Name = "Pulse Noise Cancelling Headphones",
+                Description = "Over-ear headphones built for long listening sessions.",
+                Price = 219.99m,
+                StockQuantity = 12,
+                Category = "Electronics",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                VendorId = vendor.Id,
+                Name = "Nimbus Wireless Charger",
+                Description = "Fast charging pad for phones and earbuds.",
+                Price = 39.99m,
+                StockQuantity = 30,
+                Category = "Home Office",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                VendorId = vendor.Id,
+                Name = "Atlas Mechanical Keyboard",
+                Description = "Tactile keyboard with a compact workstation layout.",
+                Price = 149.99m,
+                StockQuantity = 14,
+                Category = "Home Office",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                VendorId = vendor.Id,
+                Name = "Orbit Fitness Tracker",
+                Description = "All-day health tracking with a bright AMOLED display.",
+                Price = 89.99m,
+                StockQuantity = 22,
+                Category = "Wearables",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                VendorId = vendor.Id,
+                Name = "Nova Travel Power Bank",
+                Description = "High-capacity portable battery for daily carry.",
+                Price = 59.99m,
+                StockQuantity = 25,
+                Category = "Electronics",
+                Active = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            }
+        );
+    }
+
+    db.SaveChanges();
+}
+
+SeedDemoCatalog(app);
 
 app.Run();
 
