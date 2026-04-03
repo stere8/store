@@ -7,7 +7,7 @@ import TopBar from "./TopBar";
 import ProductsContent from "./Content";
 import { FormattedMessage } from "react-intl";
 import { apiClient } from "@/lib/epoc-api";
-import { toFrontProduct } from "@/lib/epoc-mappers";
+import { createCategoryLookup, toFrontProduct } from "@/lib/epoc-mappers";
 
 export default function MainContent({
   slug,
@@ -57,9 +57,16 @@ export default function MainContent({
     const getProducts = async () => {
       setLoading(true);
       try {
-        const response = await apiClient.get("/api/products");
-        const items = Array.isArray(response.data)
-          ? response.data.map(toFrontProduct)
+        const [productsResponse, categoriesResponse] = await Promise.all([
+          apiClient.get("/api/products"),
+          apiClient.get("/api/categories"),
+        ]);
+        const categoryItems = Array.isArray(categoriesResponse.data)
+          ? categoriesResponse.data
+          : [];
+        const categoryLookup = createCategoryLookup(categoryItems);
+        const items = Array.isArray(productsResponse.data)
+          ? productsResponse.data.map((item) => toFrontProduct(item, categoryLookup))
           : [];
 
         let nextProducts = items.filter((item) => {
