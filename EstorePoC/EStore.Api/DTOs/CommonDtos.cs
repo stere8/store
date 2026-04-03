@@ -28,6 +28,7 @@ public record ProductCreateDto(
     Guid VendorId,
     string Name,
     string? Description,
+    Guid? CategoryId,
     decimal Price,
     int Stock,
     string? ImageUrl

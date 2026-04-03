@@ -16,8 +16,7 @@ public static class ProductsEndpoints
         group.MapDelete("/{id:guid}", DeleteProduct);
         return group;
     }
-    private static async Task<IResult> UpdateProduct(
-    AppDbContext db, Guid id, ProductUpdateDto dto)
+    private static async Task<IResult> UpdateProduct(AppDbContext db, Guid id, ProductUpdateDto dto)
     {
         var tenant = db.CurrentTenantId!;
 
@@ -27,11 +26,14 @@ public static class ProductsEndpoints
         if (product is null)
             return Results.NotFound(new { error = "Product not found or inactive." });
 
-        if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
-            return Results.BadRequest(new { error = "Invalid product data." });
+        var validationError = await ValidateProductAsync(db, tenant, dto.VendorId, dto.Name, dto.CategoryId, dto.Price, dto.Stock);
+        if (validationError is not null)
+            return Results.BadRequest(new { error = validationError });
 
+        product.VendorId = dto.VendorId;
         product.Name = dto.Name.Trim();
         product.Description = dto.Description?.Trim();
+        product.CategoryId = dto.CategoryId;
         product.Price = dto.Price;
         product.StockQuantity = dto.Stock;
 
@@ -45,15 +47,15 @@ public static class ProductsEndpoints
         var tenant = db.CurrentTenantId!;
 
         var product = await db.Products
-            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant);
+            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
 
         if (product is null)
-            return Results.NotFound();
+            return Results.NotFound(new { error = "Product not found or inactive." });
 
         product.Active = false;
 
         await db.SaveChangesAsync();
-        return Results.Ok(new { message = "Product deactivated." });
+        return Results.NoContent();
     }
 
 
@@ -83,14 +85,9 @@ public static class ProductsEndpoints
     {
         var tenant = db.CurrentTenantId!;
 
-        if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
-            return Results.BadRequest(new { error = "Invalid payload." });
-
-        bool vendorOK = await db.Vendors.AnyAsync(v =>
-            v.Id == dto.VendorId && v.TenantId == tenant && v.Active);
-
-        if (!vendorOK)
-            return Results.BadRequest(new { error = "Vendor not found or inactive." });
+        var validationError = await ValidateProductAsync(db, tenant, dto.VendorId, dto.Name, dto.CategoryId, dto.Price, dto.Stock);
+        if (validationError is not null)
+            return Results.BadRequest(new { error = validationError });
 
         var product = new Product
         {
@@ -99,6 +96,7 @@ public static class ProductsEndpoints
             VendorId = dto.VendorId,
             Name = dto.Name.Trim(),
             Description = dto.Description?.Trim(),
+            CategoryId = dto.CategoryId,
             Price = dto.Price,
             StockQuantity = dto.Stock,
             ImageUrl = dto.ImageUrl,
@@ -110,5 +108,44 @@ public static class ProductsEndpoints
         await db.SaveChangesAsync();
 
         return Results.Created($"/api/products/{product.Id}", product);
+    }
+
+    private static async Task<string?> ValidateProductAsync(
+        AppDbContext db,
+        string tenant,
+        Guid vendorId,
+        string name,
+        Guid? categoryId,
+        decimal price,
+        int stock)
+    {
+        if (vendorId == Guid.Empty)
+            return "VendorId is required.";
+
+        if (string.IsNullOrWhiteSpace(name))
+            return "Name is required.";
+
+        if (price < 0)
+            return "Price must be greater than or equal to zero.";
+
+        if (stock < 0)
+            return "Stock must be greater than or equal to zero.";
+
+        if (categoryId.HasValue)
+        {
+            var categoryExists = await db.Categories.AnyAsync(c =>
+                c.Id == categoryId.Value && c.TenantId == tenant && c.Active);
+
+            if (!categoryExists)
+                return "Category not found or inactive.";
+        }
+
+        var vendorExists = await db.Vendors.AnyAsync(v =>
+            v.Id == vendorId && v.TenantId == tenant && v.Active);
+
+        if (!vendorExists)
+            return "Vendor not found or inactive.";
+
+        return null;
     }
 }
