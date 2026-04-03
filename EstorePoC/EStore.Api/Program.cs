@@ -1,4 +1,5 @@
 using EStore.Api.Data;
+using EStore.Api.DTOs;
 using EStore.Api.Endpoints;
 using EStore.Api.Models;
 using EStore.Api.Services;
@@ -160,6 +161,14 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
     if (!vendorExists)
         return Results.BadRequest(new { error = "Vendor not found (or inactive) in this tenant." });
 
+    if (dto.CategoryId.HasValue)
+    {
+        var categoryExists = await db.Categories.AnyAsync(c =>
+            c.TenantId == tenant && c.Id == dto.CategoryId.Value && c.Active);
+        if (!categoryExists)
+            return Results.BadRequest(new { error = "Category not found (or inactive) in this tenant." });
+    }
+
     var p = new Product
     {
         Id = Guid.NewGuid(),
@@ -167,6 +176,7 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
         VendorId = dto.VendorId,
         Name = dto.Name.Trim(),
         Description = dto.Description?.Trim(),
+        CategoryId = dto.CategoryId,
         Price = dto.Price,
         StockQuantity = dto.Stock,
         ImageUrl = dto.ImageUrl,
@@ -176,6 +186,57 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
     db.Products.Add(p);
     await db.SaveChangesAsync();
     return Results.Created($"/api/products/{p.Id}", p);
+});
+
+app.MapPut("/api/products/{id:guid}", async (AppDbContext db, Guid id, ProductUpdateDto dto) =>
+{
+    var tenant = db.CurrentTenantId!;
+
+    var product = await db.Products
+        .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
+    if (product is null)
+        return Results.NotFound(new { error = "Product not found or inactive." });
+
+    if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
+        return Results.BadRequest(new { error = "Invalid product payload." });
+
+    var vendorExists = await db.Vendors.AnyAsync(v =>
+        v.TenantId == tenant && v.Id == dto.VendorId && v.Active);
+    if (!vendorExists)
+        return Results.BadRequest(new { error = "Vendor not found (or inactive) in this tenant." });
+
+    if (dto.CategoryId.HasValue)
+    {
+        var categoryExists = await db.Categories.AnyAsync(c =>
+            c.TenantId == tenant && c.Id == dto.CategoryId.Value && c.Active);
+        if (!categoryExists)
+            return Results.BadRequest(new { error = "Category not found (or inactive) in this tenant." });
+    }
+
+    product.VendorId = dto.VendorId;
+    product.Name = dto.Name.Trim();
+    product.Description = dto.Description?.Trim();
+    product.CategoryId = dto.CategoryId;
+    product.Price = dto.Price;
+    product.StockQuantity = dto.Stock;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(product);
+});
+
+app.MapDelete("/api/products/{id:guid}", async (AppDbContext db, Guid id) =>
+{
+    var tenant = db.CurrentTenantId!;
+
+    var product = await db.Products
+        .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
+    if (product is null)
+        return Results.NotFound(new { error = "Product not found or inactive." });
+
+    product.Active = false;
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
 });
 
 // =======================================================================
@@ -732,7 +793,7 @@ void SeedDemoCatalog(WebApplication webApp)
                 Price = seed.Price,
                 StockQuantity = seed.StockQuantity,
                 ImageUrl = seed.ImageUrl,
-                Category = seed.Category,
+                CategoryId = existingCategories.First(x => x.Name == seed.Category).Id,
                 Active = true,
                 CreatedAt = now
             };
@@ -746,7 +807,7 @@ void SeedDemoCatalog(WebApplication webApp)
             product.Price = seed.Price;
             product.StockQuantity = seed.StockQuantity;
             product.ImageUrl = seed.ImageUrl;
-            product.Category = seed.Category;
+            product.CategoryId = existingCategories.First(x => x.Name == seed.Category).Id;
             product.Active = true;
         }
     }
@@ -939,7 +1000,7 @@ app.Run();
 
 public record LocationCreateDto(string Name, string? Code, string? Description);
 public record VendorCreateDto(string DisplayName, string LegalName, string ContactPhone, string? ContactEmail, Guid? LocationId, string? Description);
-public record ProductCreateDto(Guid VendorId, string Name, string? Description, decimal Price, int Stock, string? ImageUrl);
+public record ProductCreateDto(Guid VendorId, string Name, string? Description, Guid? CategoryId, decimal Price, int Stock, string? ImageUrl);
 public record CreateReservationDto(Guid VendorId, string CustomerName, string CustomerPhone, string? CustomerEmail, string? CustomerNote, string? PreferredLanguage, List<CreateReservationItemDto> Items);
 public record CreateReservationItemDto(Guid ProductId, int Quantity);
 public record EnsureCartDto(Guid CustomerId);

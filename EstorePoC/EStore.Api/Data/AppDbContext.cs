@@ -95,6 +95,8 @@ namespace EStore.Api.Data
 
                 e.HasOne(x => x.Vendor).WithMany(v => v.Products)
                     .HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Category).WithMany()
+                    .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Tenant).WithMany()
                     .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
 
