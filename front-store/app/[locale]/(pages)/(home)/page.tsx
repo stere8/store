@@ -7,31 +7,31 @@ import * as React from "react";
 import Collections from "@/components/modules/collections";
 import Newsletters from "@/components/modules/newsletters";
 import { getProducts } from "@/actions/product";
-import { getCampaign, getCampaigns } from "@/actions/campaign";
-import Firework from "@/components/custom/Firework"
+import { getCategories } from "@/actions/category";
+import Firework from "@/components/custom/Firework";
 
 export const revalidate = 3600;
 
 export default async function Home() {
   const products = await getProducts();
-  const firstZone = await getCampaign("homepage-slideshow-first-zone");
-  const secondZone = await getCampaign("homepage-slideshow-second-zone");
-  const thirdZone = await getCampaign("homepage-slideshow-third-zone");
-  const campaigns = await getCampaigns("homepage-product-best-deals-section");
-  const campaignsCta = await getCampaigns("homepage-cta-small-first-zone");
-  const campaignsCtaTwo = await getCampaigns("homepage-cta-small-second-zone");
+  const categories = await getCategories();
 
   return (
     <>
-      <Firework/>
+      <Firework />
       <HomeSlide
-        firstZone={firstZone}
-        secondZone={secondZone}
-        thirdZone={thirdZone}
+        firstZone={[]}
+        secondZone={[]}
+        thirdZone={[]}
+        fallbackProducts={products}
       />
       <Payments />
-      <BestDeals products={products} campaigns={campaigns} />
-      <Categories campaigns={campaignsCta} campaignsTwo={campaignsCtaTwo} />
+      <BestDeals products={products} campaigns={[]} />
+      <Categories
+        categories={categories}
+        campaigns={[]}
+        campaignsTwo={[]}
+      />
       <Collections products={products} />
       <Newsletters />
     </>

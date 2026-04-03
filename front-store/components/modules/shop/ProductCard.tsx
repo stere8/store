@@ -9,6 +9,10 @@ import { useRouter } from "next/navigation";
 
 export default function ProductCard({ item }: { item: TypeProductModel }) {
   const router = useRouter();
+  const imageUrl =
+    item.imageUrl && item.imageUrl.startsWith("http")
+      ? item.imageUrl
+      : item.images?.[0]?.url || "/placeholder.png";
 
   return (
     <div
@@ -17,7 +21,7 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
     >
       <div className="relative ">
         <Image
-          src={item.images[0] && item.images[0].url}
+          src={imageUrl}
           width="200"
           height={0}
           alt=""
@@ -37,11 +41,11 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
             className="text-primary-500 text-sm"
             readOnly
             name="hover-feedback"
-            value={getRatingNote(item.reviews)}
+            value={getRatingNote(item.reviews || [])}
             precision={0.5}
           />
           <span className="text-gray-500 text-body-tiny-400">
-            ({item.reviews.length})
+            ({(item.reviews || []).length})
           </span>
         </div>
         <div>

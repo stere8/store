@@ -28,6 +28,7 @@ export default function Cart() {
     setLoading(true);
 
     if (!isSignedIn) {
+      setLoading(false);
       router.push("/sign-in");
       return;
     }
@@ -38,7 +39,6 @@ export default function Cart() {
     }
 
     try {
-      // 1. Ensure customer
       const customerResponse = await apiClient.post("/api/customers", {
         username: user?.id,
         fullName: user?.fullName || user?.firstName || user?.id,
@@ -50,14 +50,12 @@ export default function Cart() {
         preferredLanguage: "en",
       });
 
-      // 2. Ensure cart
       const ensureCartResponse = await apiClient.post("/api/carts/ensure", {
         customerId: customerResponse.data.id,
       });
 
       const cartId = ensureCartResponse.data.id;
 
-      // 3. Sync items to backend cart
       for (const item of cart.cartItems) {
         await apiClient.post(`/api/carts/${cartId}/items`, {
           productId: item.variant._id,
@@ -65,7 +63,6 @@ export default function Cart() {
         });
       }
 
-      // 4. Redirect
       router.push(`/cart/${cartId}`);
     } catch (err) {
       console.error("Error proceeding to shipping:", err);
@@ -97,7 +94,6 @@ export default function Cart() {
 
       <Container>
         <div className="flex flex-col gap-12 items-start mt-20 xl:flex-row">
-          {/* TABLE */}
           <div className="relative overflow-x-auto flex-1 w-full">
             <table className="w-full text-sm text-left text-gray-500">
               <thead className="text-xs text-gray-700 uppercase bg-gray-50">
@@ -144,7 +140,6 @@ export default function Cart() {
             </table>
           </div>
 
-          {/* CHECKOUT */}
           <Checkout
             loading={loading}
             subtotal={subtotal}

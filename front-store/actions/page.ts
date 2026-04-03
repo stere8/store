@@ -1,32 +1,35 @@
 "use server";
-import { apiClient } from "@/lib/epoc-api";
+import axios from "axios";
 
 export const updateCampaign = async (id: string) => {
   try {
-    const response = await apiClient.get("/api/campaigns", { params: { _id: id } });
-    return response.data?.data || [];
+    const response = await axios.get(
+      process.env.NEXT_PUBLIC_API_URL + "/api/user/campaigns?_id=" + id
+    );
+    return response.data.data;
   } catch (error) {
-    console.error("Error updating campaign page", error);
-    return [];
+    return [];;
   }
 };
 
 export const getCampaigns = async (slug: string) => {
   try {
-    const response = await apiClient.get("/api/slides", { params: { slug } });
-    return response.data?.data || [];
+    const response = await axios.get(
+      process.env.NEXT_PUBLIC_API_URL + "/api/public/slides?slug=" + slug
+    );
+    return response.data.data;
   } catch (error) {
-    console.error("Error fetching campaign pages", error);
-    return [];
+    return [];;
   }
 };
 
 export const getPages = async () => {
   try {
-    const response = await apiClient.get("/api/pages");
-    return response.data?.data || [];
+    const response = await axios.get(
+      process.env.NEXT_PUBLIC_API_URL + "/api/public/pages"
+    );
+    return response.data.data;
   } catch (error) {
-    console.error("Error fetching pages", error);
-    return [];
+    return [];;
   }
 };

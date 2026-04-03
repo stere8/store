@@ -1,48 +1,40 @@
 "use client";
+
 import React from "react";
-import { Order, columns } from "./columns";
-import { DataTable } from "@/components/ui/data-table";
-import axios from "axios";
-import useSWR, { Fetcher } from "swr";
-import Loading from "@/components/custom/Loading";
-import { useAuth } from "@clerk/nextjs";
 import LeftSidebar from "../LeftSidebar";
 import Container from "@/components/custom/Container";
+import Link from "next/link";
 
 export default function Orders() {
-  // fecthing client
-  const { userId } = useAuth();
-  const fetcher: Fetcher<Order[], string> = async (url: string) => {
-    return await axios
-      .get(url, {
-        params: { user_id: userId },
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      .then((res) => res.data.data)
-      .catch((err) => console.log(err))
-      .finally(() => {});
-  };
-
-  const { data, isLoading } = useSWR<Order[]>(
-    process.env.NEXT_PUBLIC_API_URL + "/api/orders",
-    fetcher
-  );
-
   return (
     <section className="py-10">
-      {isLoading && <Loading loading={true} />}
       <Container>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-y-8 lg:gap-8">
           <LeftSidebar />
-          <div className="col-span-3">
-            <DataTable
-              className="[&>#search]:hidden"
-              searchKey="name"
-              columns={columns}
-              data={data ? data : []}
-            />
+          <div className="col-span-3 rounded-lg border border-gray-100 bg-white p-8">
+            <h2 className="text-heading4">
+              Reservation history is not linked yet
+            </h2>
+            <p className="mt-3 max-w-2xl text-body-sm-400 text-gray-700">
+              The current .NET API supports reservations created from the cart,
+              but this legacy screen still depended on the older user order
+              service. Reserve a cart to receive a reservation number and pickup
+              code immediately.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/products"
+                className="rounded-full border border-primary-500 px-6 py-3 text-sm font-medium text-primary-500"
+              >
+                Browse products
+              </Link>
+              <Link
+                href="/cart"
+                className="rounded-full bg-primary-500 px-6 py-3 text-sm font-medium text-white"
+              >
+                Open cart
+              </Link>
+            </div>
           </div>
         </div>
       </Container>

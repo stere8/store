@@ -1,4 +1,5 @@
 import {
+  TypeCategoryModel,
   TypeProductModel,
   TypeProductVariantModel,
   TypeShippingModel,
@@ -40,6 +41,9 @@ export type TypeproductCart = {
   price: number;
 };
 
+export type Product = TypeProductModel;
+export type Category = TypeCategoryModel;
+
 export type Image = {
   url: string;
 };
@@ -47,7 +51,9 @@ export type Image = {
 export type TypeLocales = "rw" | "fr" | "en" | "sw"| undefined;
 
 export type CartItem = {
-  store: string;
+  _id?: string;
+  cart?: { _id: string };
+  store?: string | { _id: string; name?: string };
   variant: TypeProductVariantModel;
   productName: string;
   productImage: string;
@@ -55,14 +61,18 @@ export type CartItem = {
 };
 
 export type Cart = {
+  _id?: string;
   cartItems: CartItem[];
   subTotal: number;
-  discount: number;
-  shipping: TypeShippingModel;
-  products: TypeProductModel[];
+  total?: number;
+  user_id?: string;
+  discount?: number;
+  shipping?: TypeShippingModel;
+  products?: TypeProductModel[];
 };
 export type WishListItem = {
- store: string;
+  _id?: string;
+  store: string | { _id: string; name?: string };
   variant: TypeProductVariantModel;
   productName: string;
   productImage: string;

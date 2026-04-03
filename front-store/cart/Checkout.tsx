@@ -22,7 +22,7 @@ export default function Checkout({
   tax?: number;
   shipping?: number;
   total: number;
-  className: string;
+  className?: string;
   placeOrder?: () => void;
   proceedToShipping?: () => void;
   loading: boolean;

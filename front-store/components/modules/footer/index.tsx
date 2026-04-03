@@ -52,24 +52,19 @@ export default function Footer() {
             </p>
             <ul className="flex flex-col gap-[4px] text-gray-400">
               <li>
-                <Link href="/categories/computer-laptop/products" className="text-body-sm-500">Computer & Laptop</Link>
-              </li>
-              <li>
-                <Link href="/categories/smartphones/products" className="text-body-sm-500">Smartphones</Link>
-              </li>
-              <li>
-                <Link href="/categories/headphones/products" className="text-body-sm-500">Headphones</Link>
-              </li>
-              <li className="relative">
-                <Link href="/" className="text-body-sm-500 before:absolute before:h-1 before:w-[24px] before:bg-warning-500 before:top-3 before:rounded-md">
-                  <span className="text-white ml-8">Accesories</span>
+                <Link href="/categories/electronics/products" className="text-body-sm-500">
+                  Electronics
                 </Link>
               </li>
               <li>
-                <Link href="/categories/camera-photo/products" className="text-body-sm-500">Camera & photo</Link>
+                <Link href="/categories/home-office/products" className="text-body-sm-500">
+                  Home Office
+                </Link>
               </li>
               <li>
-                <Link href="/categories/tv-homes/products" className="text-body-sm-500">TV & Homes</Link>
+                <Link href="/categories/wearables/products" className="text-body-sm-500">
+                  Wearables
+                </Link>
               </li>
               <li>
                 <Link href="/products" className="text-body-sm-500 text-warning-500 flex gap-[8px]">

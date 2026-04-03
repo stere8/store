@@ -67,7 +67,7 @@ export default function CategoryListItem({
               key={idx}
             >
               <LocaleLink
-                href={`/products/${item.slug}/products`}
+                href={`/products/${item.slug}`}
                 className="h-full px-[24px] py-[10px] flex items-center text-body-sm-400 text-gray-600  gap-[12px] justify-center"
               >
                 <Image
@@ -129,7 +129,7 @@ export default function CategoryListItem({
               variant="primary"
               icon="after"
               onClick={() =>
-                router.push(campaigns[0].slideItem[0].product.slug)
+                router.push(`/products/${campaigns[0].slideItem[0].product.slug}`)
               }
             >
               SHOPPING NOW

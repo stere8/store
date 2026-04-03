@@ -13,7 +13,7 @@ export default async function page({ params }: { params: { slug: string } }) {
   return (
     <>
       <Breadcrumbs page="categories" />
-      <Shop slug={category._id || undefined} />
+      <Shop slug={category.slug || undefined} />
     </>
   );
 }

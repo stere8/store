@@ -1,5 +1,6 @@
 import React from "react";
 import axios from "axios";
+import { useAuth } from "@clerk/nextjs";
 import useSWRMutation from "swr/mutation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,12 +31,16 @@ export default function Discount({
   setLoading: (v: boolean) => void;
   subtotal: number;
 }) {
+  const { getToken } = useAuth();
+
   async function postRequest(url: string, { arg }: { arg: DiscountFormData }) {
     setLoading(true);
+    const token = await getToken();
     return await axios
       .post(process.env.NEXT_PUBLIC_API_URL + url, arg, {
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       })
       .then(async (response) => {
@@ -66,7 +71,7 @@ export default function Discount({
   }
 
   const { trigger: create, isMutating: isCreating } = useSWRMutation(
-    "/api/discounts",
+    "/api/user/discounts",
     postRequest
   );
 

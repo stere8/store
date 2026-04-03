@@ -2,11 +2,12 @@ import Loading from "@/components/custom/Loading";
 import usePagination from "@/hooks/usePagination";
 import { TypeProductModel } from "@/types/models";
 import { Pagination } from "@mui/material";
-import axios from "axios";
 import React, { useEffect, useState } from "react";
 import TopBar from "./TopBar";
 import ProductsContent from "./Content";
 import { FormattedMessage } from "react-intl";
+import { apiClient } from "@/lib/epoc-api";
+import { toFrontProduct } from "@/lib/epoc-mappers";
 
 export default function MainContent({
   slug,
@@ -55,27 +56,49 @@ export default function MainContent({
   useEffect(() => {
     const getProducts = async () => {
       setLoading(true);
-      await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/products", {
-          params: {
-            filter: filter,
-            minPrice: minPrice,
-            maxPrice: maxPrice,
-            category: category,
-            brand: brand,
-            tag: tag,
-            style: "shop",
-          },
-        })
-        .then((response) => {
-          setProducts(response.data.data);
-        })
-        .catch((error) => {
-          console.log(error.message);
-        })
-        .finally(() => {
-          setLoading(false);
+      try {
+        const response = await apiClient.get("/api/products");
+        const items = Array.isArray(response.data)
+          ? response.data.map(toFrontProduct)
+          : [];
+
+        let nextProducts = items.filter((item) => {
+          const matchesCategory =
+            !category ||
+            item.category?.slug === category ||
+            item.category?.name.toLowerCase() === category.toLowerCase();
+          const matchesMinPrice = item.price >= minPrice;
+          const matchesMaxPrice = maxPrice <= 0 ? true : item.price <= maxPrice;
+
+          return matchesCategory && matchesMinPrice && matchesMaxPrice;
         });
+
+        if (filter === "alphabetic") {
+          nextProducts = [...nextProducts].sort((a, b) =>
+            a.name.localeCompare(b.name)
+          );
+        }
+
+        if (filter === "priceLowToHigh") {
+          nextProducts = [...nextProducts].sort((a, b) => a.price - b.price);
+        }
+
+        if (filter === "priceHighToLow") {
+          nextProducts = [...nextProducts].sort((a, b) => b.price - a.price);
+        }
+
+        if (filter === "latest") {
+          nextProducts = [...nextProducts].sort((a, b) =>
+            b._id.localeCompare(a._id)
+          );
+        }
+
+        setProducts(nextProducts);
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
     };
     getProducts();
   }, [

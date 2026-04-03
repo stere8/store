@@ -4,49 +4,44 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import axios from "axios";
 import { useRouter } from "next/navigation";
 import { CiMenuFries } from "react-icons/ci";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  TypeCategoryModel,
-  TypePageModel,
-  TypeSubCategoryModel,
-} from "@/types/models";
+import { TypeCategoryModel, TypeSubCategoryModel } from "@/types/models";
+import { apiClient } from "@/lib/epoc-api";
+import { toFrontCategory } from "@/lib/epoc-mappers";
+
+type SidebarPage = {
+  slug: string;
+  name: string;
+};
+
+const DEFAULT_PAGES: SidebarPage[] = [
+  { slug: "products", name: "Products" },
+  { slug: "cart", name: "Cart" },
+  { slug: "WishList", name: "Wishlist" },
+];
 
 export default function SidebarMenu({ className }: { className?: string }) {
   const [show, setShow] = useState(false);
   const [subCategories, setSubCategories] = useState<TypeSubCategoryModel[]>();
   const [categories, setCategories] = useState<TypeCategoryModel[]>([]);
-  const [pages, setPages] = useState<TypePageModel[]>([]);
+  const [pages] = useState<SidebarPage[]>(DEFAULT_PAGES);
   const router = useRouter();
 
   useEffect(() => {
-    const getPages = async () => {
-      await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/pages")
-        .then((response) => {
-          setPages(response.data.data);
-        })
-        .catch((error) => {
-          console.log(error.message);
-        });
-    };
-
     const getCategories = async () => {
-      await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/categories")
-        .then((response) => {
-          setCategories(response.data.data);
-        })
-        .catch((error) => {
-          console.log(error.message);
-        });
+      try {
+        const response = await apiClient.get("/api/categories");
+        const items = Array.isArray(response.data) ? response.data : [];
+        setCategories(items.map(toFrontCategory));
+      } catch (error) {
+        console.log(error);
+      }
     };
 
     getCategories();
-    getPages();
   }, []);
 
   return (
@@ -104,11 +99,9 @@ export default function SidebarMenu({ className }: { className?: string }) {
               <TabsContent value="menu">
                 <div>
                   {pages &&
-                    pages
-                      .slice(0, 20)
-                      .map((item: TypePageModel, idx: number) => (
+                    pages.slice(0, 20).map((item, idx: number) => (
                         <div
-                          onClick={() => router.push(`${item.slug}`)}
+                          onClick={() => router.push(`/${item.slug}`)}
                           key={idx}
                           className="group inline-flex items-center px-4 py-2 gap-4 w-full hover:text-primary-700 capitalize cursor-pointer"
                         >

@@ -3,11 +3,9 @@
 import Container from "@/components/custom/Container";
 import { Input } from "@/components/custom/Input";
 import { RectangleButton } from "@/components/custom/RectangleButton";
-//import Image from "next/image";
 import React, { useState } from "react";
 import z from "zod";
 import { toast } from "@/hooks/use-toast";
-import axios from "axios";
 import { cn } from "@/lib/utils";
 import { Loader2Icon } from "lucide-react";
 import { FormattedMessage, useIntl } from "react-intl";
@@ -22,6 +20,7 @@ export default function Newsletters() {
     if (loading) {
       return;
     }
+
     setLoading(true);
 
     const Email = z.object({
@@ -33,32 +32,23 @@ export default function Newsletters() {
     if (!validatedFields.success) {
       toast({
         variant: "default",
-        title: "Humm! 😏",
-        description: "Try again, it's not a valid email.",
+        title: "Invalid email",
+        description: "Try again with a valid email address.",
       });
       setLoading(false);
       return;
     }
 
     try {
-      const values = {
-        subject: "Subscribe to newsletter",
-        email,
-        message: "I just subscribed to your newsletter",
-      };
-
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/sendemail`,
-        values
-      );
-
+      // The legacy email endpoint is not exposed by the current .NET API.
+      await new Promise((resolve) => setTimeout(resolve, 250));
       toast({
         variant: "default",
-        title: "Fine✔️",
-        description: response.data.message,
+        title: "Newsletter unavailable",
+        description:
+          "Email subscriptions are not exposed by the current .NET API yet.",
       });
-    } catch (err) {
-      console.error(err);
+      setEmail("");
     } finally {
       setLoading(false);
     }
@@ -79,7 +69,9 @@ export default function Newsletters() {
 
           <div className="flex items-center bg-white p-2 max-w-[560px]">
             <Input
-              placeholder={intl.formatMessage({ id: "home.main.subcribe-enter-mail" })}
+              placeholder={intl.formatMessage({
+                id: "home.main.subcribe-enter-mail",
+              })}
               className="text-black border-none"
               value={email}
               onChange={(e) => setEmail(e.currentTarget.value)}
@@ -101,20 +93,6 @@ export default function Newsletters() {
               </span>
             </RectangleButton>
           </div>
-
-                      {/* Uncomment this section if you want to display brand logos
-              <div className="flex flex-wrap justify-center gap-4 opacity-25">
-                {["google", "amazon", "philips", "toshiba", "samsung"].map((brand) => (
-                  <Image
-                    key={brand}
-                    src={`/assets/logo/${brand}.png`}
-                    alt={`${brand} logo`}
-                    width="72"
-                    height="72"
-                  />
-                ))}
-              </div> 
-              */}
         </div>
       </Container>
     </section>

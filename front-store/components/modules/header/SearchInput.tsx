@@ -8,9 +8,10 @@ import Image from "next/image";
 import { Badge } from "@/components/custom/Badge";
 import { m } from "framer-motion";
 import { TypeProductModel } from "@/types/models";
-import axios from "axios";
 import Loading from "@/components/custom/Loading";
 import Link from "next/link";
+import { apiClient } from "@/lib/epoc-api";
+import { toFrontProduct } from "@/lib/epoc-mappers";
 
 export default function SearchInput({ className }: { className?: string }) {
   const [openSearchContent, setOpenSearchContent] = useState(false);
@@ -20,19 +21,27 @@ export default function SearchInput({ className }: { className?: string }) {
 
   const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setLoading(true);
-    const search = e.currentTarget.value;
+    const search = e.currentTarget.value.trim().toLowerCase();
+
     if (search.length > 1) {
-      await axios
-        .get(process.env.NEXT_PUBLIC_API_URL + "/api/products", {
-          params: {
-            search: search,
-          },
-        })
-        .then((response) => {
-          setData(response.data.data);
-        })
-        .catch(() => {})
-        .finally(() => {});
+      try {
+        const response = await apiClient.get("/api/products");
+        const items = Array.isArray(response.data) ? response.data : [];
+        const filtered = items
+          .map(toFrontProduct)
+          .filter(
+            (item) =>
+              item.name.toLowerCase().includes(search) ||
+              item.description.toLowerCase().includes(search)
+          );
+
+        setData(filtered);
+        setOpenSearchContent(true);
+      } catch (error) {
+        console.log(error);
+      }
+    } else {
+      setData([]);
     }
 
     setLoading(false);
