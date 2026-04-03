@@ -14,10 +14,11 @@ public class Product
     public int ReservedQuantity { get; set; } = 0;
 
     public string? ImageUrl { get; set; }
-    public string? Category { get; set; }
+    public Guid? CategoryId { get; set; }
     public bool Active { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public Tenant? Tenant { get; set; }
     public Vendor? Vendor { get; set; }
+    public Category? Category { get; set; }
 }
