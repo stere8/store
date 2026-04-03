@@ -4,6 +4,7 @@ import Collections from "@/components/modules/collections";
 import Products from "@/components/modules/products";
 import { mergeOpenGraph } from "@/lib/mergeOpenGraph";
 import React from "react";
+import { notFound } from "next/navigation";
 
 export const revalidate = 3600; // 1h
 
@@ -12,6 +13,10 @@ export const revalidate = 3600; // 1h
 export default async function page({ params }: { params: { slug: string } }) {
   const product = await getProduct(params.slug);
   const products = await getProducts();
+
+  if (!product._id) {
+    notFound();
+  }
 
   return (
     <>
@@ -37,7 +42,11 @@ export async function generateMetadata({
   params: { slug: string; locale: string };
 }) {
   const product = await getProduct(params.slug);
-  const images = product && product.images[0].url;
+  if (!product._id) {
+    return {};
+  }
+
+  const images = product.images[0]?.url;
  
   return {
     title: `Buy ${params.slug} - E-city`,
@@ -48,11 +57,11 @@ export async function generateMetadata({
 
     //For SEO: Sharing on social media twitter, whatsapp, Linkeidn etc
     openGraph: mergeOpenGraph({
-      title: `Buy ${product && product.name.substring(0, 60)}`,
+      title: `Buy ${product.name.substring(0, 60)}`,
       url: `/${params.locale}/products/${params.slug}`,
       images: `${images}`,
       description: `${
-        product && product.seoDescription
+        product.seoDescription
           ? product.seoDescription.substring(0, 60)
           : product.description
       }`,

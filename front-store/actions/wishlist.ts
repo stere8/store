@@ -1,18 +1,12 @@
 "use server";
-import axios from "axios";
+import { apiClient } from "@/lib/epoc-api";
 
 export const getWishlist = async (_id: string) => {
   try {
-    const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/api/wishlist?_id=" + _id,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    return response.data.data;
+    const response = await apiClient.get("/api/wishlist", { params: { _id } });
+    return response.data?.data || [];
   } catch (error) {
-    return error;
+    console.error("Error fetching wishlist", error);
+    return [];
   }
 };

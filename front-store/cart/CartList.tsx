@@ -4,9 +4,8 @@ import Container from "@/components/custom/Container";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { apiClient } from "@/lib/epoc-api";
 import { CartItem as TypeCartItem } from "@/types";
-import { CartItemForm } from "@/types/forms";
 import { IRootState } from "@/store";
 import { memoize } from "proxy-memoize";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -31,44 +30,40 @@ export default function Cart() {
       router.push("/sign-in");
       return;
     }
+
     if (cart.cartItems.length > 8) {
       setLoading(false);
       return;
     }
 
-    const reDefinedCartItems: CartItemForm[] = [];
-    for (let index = 0; index < cart.cartItems.length; index++) {
-      const element = cart.cartItems[index];
-      reDefinedCartItems.push({
-        store: element.store,
-        variant: element.variant._id,
-        productImage: element.productImage,
-        productName: element.productName,
-        qty: element.qty,
+    try {
+      const customerResponse = await apiClient.post("/api/customers", {
+        username: user?.id,
+        fullName: user?.fullName || user?.firstName || user?.id,
+        phoneNumber: `+250${(user?.id || "000000000").replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`,
+        email: user?.primaryEmailAddress?.emailAddress || null,
+        preferredLanguage: "en",
       });
+
+      const ensureCartResponse = await apiClient.post("/api/carts/ensure", {
+        customerId: customerResponse.data.id,
+      });
+
+      const cartId = ensureCartResponse.data.id;
+
+      for (const item of cart.cartItems) {
+        await apiClient.post(`/api/carts/${cartId}/items`, {
+          productId: item.variant._id,
+          quantity: item.qty,
+        });
+      }
+
+      router.push(`/cart/${cartId}`);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
     }
-
-    const data = {
-      cartItems: reDefinedCartItems,
-      subTotal: total,
-      user_id: user?.id,
-    };
-
-    await axios
-      .post(process.env.NEXT_PUBLIC_API_URL + "/api/carts/ensure", data, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      .then((response) => {
-        const data = response.data;
-        router.push("/cart/" + data.data._id);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-      })
-      .finally(() => {});
   };
 
   const [total, setTotal] = useState(0);
@@ -90,7 +85,7 @@ export default function Cart() {
     setTotal(subtotal);
   }, [subtotal]);
 
-   return (
+  return (
     <section className="my-10">
       {loading && <Loading loading={loading} />}
       <Container>
