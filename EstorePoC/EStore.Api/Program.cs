@@ -587,142 +587,343 @@ void SeedDemoCatalog(WebApplication webApp)
     db.Database.EnsureCreated();
 
     const string tenantId = "kigali-city-mall";
+    var now = DateTimeOffset.UtcNow;
 
-    var vendor = db.Vendors.FirstOrDefault(v => v.TenantId == tenantId);
-    if (vendor is null)
+    var existingLocations = db.Locations.Where(x => x.TenantId == tenantId).ToList();
+    foreach (var seed in DemoSeed.Locations)
     {
-        vendor = new Vendor
+        var location = existingLocations.FirstOrDefault(x => x.Name == seed.Name);
+        if (location is null)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            DisplayName = "Kigali City Electronics",
-            LegalName = "Kigali City Electronics Ltd",
-            ContactPhone = "+250788000001",
-            ContactEmail = "hello@kcm.rw",
-            Description = "Demo storefront inventory for the public shop.",
-            Active = true,
-            Verified = true,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        db.Vendors.Add(vendor);
+            location = new Location
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = seed.Name,
+                Code = seed.Code,
+                Description = seed.Description,
+                AddressLine1 = seed.AddressLine1,
+                Region = seed.Region,
+                City = seed.City,
+                Country = seed.Country,
+                Floor = seed.Floor,
+                Unit = seed.Unit,
+                CreatedAt = now
+            };
+            db.Locations.Add(location);
+            existingLocations.Add(location);
+        }
+        else
+        {
+            location.Code = seed.Code;
+            location.Description = seed.Description;
+            location.AddressLine1 = seed.AddressLine1;
+            location.Region = seed.Region;
+            location.City = seed.City;
+            location.Country = seed.Country;
+            location.Floor = seed.Floor;
+            location.Unit = seed.Unit;
+        }
     }
 
-    if (!db.Categories.Any(c => c.TenantId == tenantId))
+    var existingCategories = db.Categories.Where(x => x.TenantId == tenantId).ToList();
+    foreach (var seed in DemoSeed.Categories)
     {
-        db.Categories.AddRange(
-            new Category
+        var category = existingCategories.FirstOrDefault(x => x.Name == seed.Name);
+        if (category is null)
+        {
+            category = new Category
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                Name = "Electronics",
-                Description = "Phones, audio, and accessories.",
+                Name = seed.Name,
+                Description = seed.Description,
                 Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Category
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                Name = "Home Office",
-                Description = "Desk essentials and productivity devices.",
-                Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Category
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                Name = "Wearables",
-                Description = "Smart devices you can carry every day.",
-                Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            }
-        );
+                CreatedAt = now
+            };
+            db.Categories.Add(category);
+            existingCategories.Add(category);
+        }
+        else
+        {
+            category.Description = seed.Description;
+            category.Active = true;
+        }
     }
 
-    if (!db.Products.Any(p => p.TenantId == tenantId))
+    var existingVendors = db.Vendors.Where(x => x.TenantId == tenantId).ToList();
+    foreach (var seed in DemoSeed.Vendors)
     {
-        db.Products.AddRange(
-            new Product
+        var vendor = existingVendors.FirstOrDefault(x => x.DisplayName == seed.DisplayName);
+        var location = existingLocations.First(x => x.Name == seed.LocationName);
+        if (vendor is null)
+        {
+            vendor = new Vendor
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                DisplayName = seed.DisplayName,
+                LegalName = seed.LegalName,
+                ContactPhone = seed.ContactPhone,
+                ContactEmail = seed.ContactEmail,
+                Description = seed.Description,
+                LocationId = location.Id,
+                Active = true,
+                Verified = true,
+                CreatedAt = now
+            };
+            db.Vendors.Add(vendor);
+            existingVendors.Add(vendor);
+        }
+        else
+        {
+            vendor.LegalName = seed.LegalName;
+            vendor.ContactPhone = seed.ContactPhone;
+            vendor.ContactEmail = seed.ContactEmail;
+            vendor.Description = seed.Description;
+            vendor.LocationId = location.Id;
+            vendor.Active = true;
+            vendor.Verified = true;
+        }
+    }
+
+    var existingCustomers = db.Customers.Where(x => x.TenantId == tenantId).ToList();
+    foreach (var seed in DemoSeed.Customers)
+    {
+        var customer = existingCustomers.FirstOrDefault(x => x.Username == seed.Username);
+        if (customer is null)
+        {
+            customer = new Customer
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Username = seed.Username,
+                FullName = seed.FullName,
+                PhoneNumber = seed.PhoneNumber,
+                Email = seed.Email,
+                PreferredLanguage = seed.PreferredLanguage
+            };
+            db.Customers.Add(customer);
+            existingCustomers.Add(customer);
+        }
+        else
+        {
+            customer.FullName = seed.FullName;
+            customer.PhoneNumber = seed.PhoneNumber;
+            customer.Email = seed.Email;
+            customer.PreferredLanguage = seed.PreferredLanguage;
+        }
+    }
+
+    var existingProducts = db.Products.Where(x => x.TenantId == tenantId).ToList();
+    foreach (var seed in DemoSeed.Products)
+    {
+        var vendor = existingVendors.First(x => x.DisplayName == seed.VendorDisplayName);
+        var product = existingProducts.FirstOrDefault(x => x.Name == seed.Name);
+        if (product is null)
+        {
+            product = new Product
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 VendorId = vendor.Id,
-                Name = "Orion Smart Speaker",
-                Description = "Compact wireless speaker with room-filling sound.",
-                Price = 129.99m,
-                StockQuantity = 18,
-                Category = "Electronics",
+                Name = seed.Name,
+                Description = seed.Description,
+                Price = seed.Price,
+                StockQuantity = seed.StockQuantity,
+                ImageUrl = seed.ImageUrl,
+                Category = seed.Category,
                 Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Product
+                CreatedAt = now
+            };
+            db.Products.Add(product);
+            existingProducts.Add(product);
+        }
+        else
+        {
+            product.VendorId = vendor.Id;
+            product.Description = seed.Description;
+            product.Price = seed.Price;
+            product.StockQuantity = seed.StockQuantity;
+            product.ImageUrl = seed.ImageUrl;
+            product.Category = seed.Category;
+            product.Active = true;
+        }
+    }
+
+    db.SaveChanges();
+
+    var customersByUsername = db.Customers.Where(x => x.TenantId == tenantId).ToDictionary(x => x.Username);
+    var vendorsByName = db.Vendors.Where(x => x.TenantId == tenantId).ToDictionary(x => x.DisplayName);
+    var productsByName = db.Products.Where(x => x.TenantId == tenantId).ToDictionary(x => x.Name);
+
+    var activeCarts = db.ShoppingCarts
+        .Include(x => x.Items)
+        .Where(x => x.TenantId == tenantId && x.IsActive)
+        .ToList();
+    foreach (var seed in DemoSeed.Carts)
+    {
+        var customer = customersByUsername[seed.CustomerUsername];
+        var cart = activeCarts.FirstOrDefault(x => x.CustomerId == customer.Id);
+        if (cart is null)
+        {
+            cart = new ShoppingCart
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                VendorId = vendor.Id,
-                Name = "Pulse Noise Cancelling Headphones",
-                Description = "Over-ear headphones built for long listening sessions.",
-                Price = 219.99m,
-                StockQuantity = 12,
-                Category = "Electronics",
-                Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Product
+                CustomerId = customer.Id,
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            db.ShoppingCarts.Add(cart);
+            activeCarts.Add(cart);
+        }
+
+        foreach (var itemSeed in seed.Items)
+        {
+            var product = productsByName[itemSeed.ProductName];
+            var item = cart.Items.FirstOrDefault(x => x.ProductId == product.Id);
+            if (item is null)
             {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                VendorId = vendor.Id,
-                Name = "Nimbus Wireless Charger",
-                Description = "Fast charging pad for phones and earbuds.",
-                Price = 39.99m,
-                StockQuantity = 30,
-                Category = "Home Office",
-                Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Product
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                VendorId = vendor.Id,
-                Name = "Atlas Mechanical Keyboard",
-                Description = "Tactile keyboard with a compact workstation layout.",
-                Price = 149.99m,
-                StockQuantity = 14,
-                Category = "Home Office",
-                Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Product
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                VendorId = vendor.Id,
-                Name = "Orbit Fitness Tracker",
-                Description = "All-day health tracking with a bright AMOLED display.",
-                Price = 89.99m,
-                StockQuantity = 22,
-                Category = "Wearables",
-                Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
-            },
-            new Product
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                VendorId = vendor.Id,
-                Name = "Nova Travel Power Bank",
-                Description = "High-capacity portable battery for daily carry.",
-                Price = 59.99m,
-                StockQuantity = 25,
-                Category = "Electronics",
-                Active = true,
-                CreatedAt = DateTimeOffset.UtcNow
+                cart.Items.Add(new ShoppingCartItem
+                {
+                    Id = Guid.NewGuid(),
+                    ShoppingCartId = cart.Id,
+                    ProductId = product.Id,
+                    Quantity = itemSeed.Quantity,
+                    UnitPrice = product.Price,
+                    LineTotal = product.Price * itemSeed.Quantity
+                });
             }
-        );
+            else
+            {
+                item.Quantity = itemSeed.Quantity;
+                item.UnitPrice = product.Price;
+                item.LineTotal = product.Price * itemSeed.Quantity;
+            }
+        }
+
+        cart.UpdatedAt = now;
+    }
+
+    var existingReviews = db.Reviews.Where(x => x.TenantId == tenantId).ToList();
+    foreach (var seed in DemoSeed.Reviews)
+    {
+        var customer = customersByUsername[seed.CustomerUsername];
+        var product = productsByName[seed.ProductName];
+        var review = existingReviews.FirstOrDefault(x => x.CustomerId == customer.Id && x.ProductId == product.Id);
+        if (review is null)
+        {
+            review = new Review
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                ProductId = product.Id,
+                CustomerId = customer.Id,
+                Rating = seed.Rating,
+                Title = seed.Title,
+                Comment = seed.Comment,
+                IsPublished = true,
+                CreatedAt = now
+            };
+            db.Reviews.Add(review);
+            existingReviews.Add(review);
+        }
+        else
+        {
+            review.Rating = seed.Rating;
+            review.Title = seed.Title;
+            review.Comment = seed.Comment;
+            review.IsPublished = true;
+        }
+    }
+
+    var existingReservations = db.Reservations
+        .Include(x => x.Items)
+        .Where(x => x.TenantId == tenantId)
+        .ToList();
+    foreach (var seed in DemoSeed.Reservations(now))
+    {
+        var customer = customersByUsername[seed.CustomerUsername];
+        var vendor = vendorsByName[seed.VendorDisplayName];
+        var reservation = existingReservations.FirstOrDefault(x => x.ReservationNumber == seed.ReservationNumber);
+        var total = seed.Items.Sum(x => productsByName[x.ProductName].Price * x.Quantity);
+        if (reservation is null)
+        {
+            reservation = new Reservation
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                CustomerId = customer.Id,
+                VendorId = vendor.Id,
+                ReservationNumber = seed.ReservationNumber,
+                PickupCode = seed.PickupCode,
+                Status = seed.Status,
+                TotalAmount = total,
+                CustomerNotes = "Seeded demo reservation.",
+                VendorNotes = seed.VendorNotes,
+                CreatedAt = seed.CreatedAt,
+                ExpiresAt = seed.ExpiresAt,
+                ConfirmedAt = seed.Status is ReservationStatus.Confirmed or ReservationStatus.Completed ? seed.CreatedAt.AddHours(2) : null,
+                CompletedAt = seed.Status == ReservationStatus.Completed ? seed.CreatedAt.AddDays(1) : null,
+                RejectedAt = seed.Status == ReservationStatus.Rejected ? seed.CreatedAt.AddHours(8) : null,
+                CancelledAt = seed.Status == ReservationStatus.Cancelled ? seed.CreatedAt.AddHours(6) : null,
+                StockFinalized = seed.Status == ReservationStatus.Completed
+            };
+            db.Reservations.Add(reservation);
+            existingReservations.Add(reservation);
+        }
+        else
+        {
+            reservation.CustomerId = customer.Id;
+            reservation.VendorId = vendor.Id;
+            reservation.Status = seed.Status;
+            reservation.TotalAmount = total;
+            reservation.VendorNotes = seed.VendorNotes;
+            reservation.ExpiresAt = seed.ExpiresAt;
+            reservation.ConfirmedAt = seed.Status is ReservationStatus.Confirmed or ReservationStatus.Completed ? seed.CreatedAt.AddHours(2) : null;
+            reservation.CompletedAt = seed.Status == ReservationStatus.Completed ? seed.CreatedAt.AddDays(1) : null;
+            reservation.RejectedAt = seed.Status == ReservationStatus.Rejected ? seed.CreatedAt.AddHours(8) : null;
+            reservation.CancelledAt = seed.Status == ReservationStatus.Cancelled ? seed.CreatedAt.AddHours(6) : null;
+            reservation.StockFinalized = seed.Status == ReservationStatus.Completed;
+        }
+
+        foreach (var itemSeed in seed.Items)
+        {
+            var product = productsByName[itemSeed.ProductName];
+            var item = reservation.Items.FirstOrDefault(x => x.ProductId == product.Id);
+            if (item is null)
+            {
+                reservation.Items.Add(new ReservationItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ReservationId = reservation.Id,
+                    ProductId = product.Id,
+                    Quantity = itemSeed.Quantity,
+                    UnitPrice = product.Price,
+                    LineTotal = product.Price * itemSeed.Quantity
+                });
+            }
+            else
+            {
+                item.Quantity = itemSeed.Quantity;
+                item.UnitPrice = product.Price;
+                item.LineTotal = product.Price * itemSeed.Quantity;
+            }
+        }
+    }
+
+    var reservedByProductId = existingReservations
+        .Where(x => x.Status is ReservationStatus.Pending or ReservationStatus.Confirmed)
+        .SelectMany(x => x.Items)
+        .GroupBy(x => x.ProductId)
+        .ToDictionary(x => x.Key, x => x.Sum(i => i.Quantity));
+
+    foreach (var product in db.Products.Where(x => x.TenantId == tenantId))
+    {
+        product.ReservedQuantity = reservedByProductId.GetValueOrDefault(product.Id, 0);
     }
 
     db.SaveChanges();
