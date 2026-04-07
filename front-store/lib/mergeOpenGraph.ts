@@ -6,7 +6,7 @@ const defaultOpenGraph: Metadata["openGraph"] = {
   description: "E-City - Multi Vendor Ecommerce platform",
   images: [
     {
-      url: `${process.env.NEXT_PUBLIC_SERVER_URL}/assets/images/logo_dark.svg`,
+      url: `${process.env.NEXT_PUBLIC_SERVER_URL}/assets/images/logo.png`,
     },
   ],
   type: "website",

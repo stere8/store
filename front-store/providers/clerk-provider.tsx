@@ -32,7 +32,7 @@ function ClerkProvider({ children }:ClerkProviderProps ) {
         logoPlacement: "none",
         socialButtonsVariant: "blockButton",
         socialButtonsPlacement: "bottom",
-        logoImageUrl: "/assets/logo/mobile_black.svg",
+        logoImageUrl: "/assets/images/logo.png",
       },
     }}
     signUpUrl="/sign-up"

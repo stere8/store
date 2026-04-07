@@ -17,6 +17,6 @@ export const metadata: Metadata = {
   description:
     "A Ecommerce app. We are selling everything, shoes for mens womens and kids",
   icons: {
-    icon: "/assets/images/logo_dark.svg",
+    icon: "/assets/images/logo.png",
   },
 };
