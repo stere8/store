@@ -12,6 +12,7 @@ import Loading from "@/components/custom/Loading";
 import Link from "next/link";
 import { apiClient } from "@/lib/epoc-api";
 import { toFrontProduct } from "@/lib/epoc-mappers";
+import { getProductVendorName } from "@/lib/utils";
 
 export default function SearchInput({ className }: { className?: string }) {
   const [openSearchContent, setOpenSearchContent] = useState(false);
@@ -70,28 +71,37 @@ export default function SearchInput({ className }: { className?: string }) {
       >
         <div className="flex flex-col">
           <div className="flex flex-col gap-y-6  bg-white">
-            {data?.map((item, idx) => (
-              <Link
-                href={`/products/${item.slug}`}
-                className="cursor-pointer h-[170px] flex gap-4 py-4 px-4 border-2 border-white  hover:border-secondary-700 "
-                key={idx}
-              >
-                <Image
-                  src={item.images[0].url}
-                  alt="image"
-                  height={0}
-                  width={100}
-                  className="h-auto object-contain"
-                />
-                <div className="flex flex-col gap-1">
-                  <h3 className="font-[400]">{item.name}</h3>
-                  {item.discount > 0 && (
-                    <Badge variant="warning">-{item.discount}%</Badge>
-                  )}
-                </div>
-                <h3 className="">{item.price}RWF</h3>
-              </Link>
-            ))}
+            {data?.map((item, idx) => {
+              const vendorName = getProductVendorName(item);
+
+              return (
+                <Link
+                  href={`/products/${item.slug}`}
+                  className="cursor-pointer h-[170px] flex gap-4 py-4 px-4 border-2 border-white  hover:border-secondary-700 "
+                  key={idx}
+                >
+                  <Image
+                    src={item.images[0].url}
+                    alt="image"
+                    height={0}
+                    width={100}
+                    className="h-auto object-contain"
+                  />
+                  <div className="flex flex-col gap-1">
+                    <h3 className="font-[400]">{item.name}</h3>
+                    {vendorName && (
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                        {vendorName}
+                      </p>
+                    )}
+                    {item.discount > 0 && (
+                      <Badge variant="warning">-{item.discount}%</Badge>
+                    )}
+                  </div>
+                  <h3 className="">{item.price}RWF</h3>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </m.div>

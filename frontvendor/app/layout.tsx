@@ -4,7 +4,7 @@ import React from "react";
 import { font } from "./fonts";
 
 export const metadata: Metadata = {
-  title: "Frontvendor",
+  title: "Vendor-E-store",
   description: "Vendor dashboard for product management on EStore.Api.",
 };
 

@@ -2,7 +2,7 @@ import { Badge } from "@/components/custom/Badge";
 import CurrencyFormat from "@/components/custom/CurrencyFormat";
 import { Rating } from "@mui/material";
 import React from "react";
-import { discountPrice, getRatingNote } from "@/lib/utils";
+import { discountPrice, getProductVendorName, getRatingNote } from "@/lib/utils";
 import Image from "next/image";
 import { TypeProductModel } from "@/types/models";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
     item.imageUrl && item.imageUrl.startsWith("http")
       ? item.imageUrl
       : item.images?.[0]?.url || "/placeholder.png";
+  const vendorName = getProductVendorName(item);
 
   return (
     <div
@@ -34,6 +35,11 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
             </Badge>
           )}
         </div>
+        {vendorName && (
+          <div className="absolute right-0 top-4 max-w-[132px] truncate rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm backdrop-blur">
+            {vendorName}
+          </div>
+        )}
       </div>
       <div className="flex flex-col gap-2 items-center">
         <div className="flex gap-2 items-center">
