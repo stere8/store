@@ -22,12 +22,16 @@ public static class CustomersEndpoints
     private static async Task<IResult> UpsertCustomer(AppDbContext db, CustomerDto dto)
     {
         var tenant = db.CurrentTenantId!;
+        var username = dto.Username.Trim();
+        var fullName = dto.FullName.Trim();
+        var phoneNumber = dto.PhoneNumber.Trim();
+        var email = dto.Email?.Trim();
 
-        // Check if customer already exists (by phone or username)
-        var existing = await db.Customers
-            .FirstOrDefaultAsync(c =>
-                c.TenantId == tenant &&
-                (c.PhoneNumber == dto.PhoneNumber || c.Username == dto.Username));
+        var existingByUsername = await db.Customers
+            .FirstOrDefaultAsync(c => c.TenantId == tenant && c.Username == username);
+        var existingByPhone = await db.Customers
+            .FirstOrDefaultAsync(c => c.TenantId == tenant && c.PhoneNumber == phoneNumber);
+        var existing = existingByUsername ?? existingByPhone;
 
         if (existing is null)
         {
@@ -36,10 +40,10 @@ public static class CustomersEndpoints
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant,
-                Username = dto.Username.Trim(),
-                FullName = dto.FullName.Trim(),
-                PhoneNumber = dto.PhoneNumber.Trim(),
-                Email = dto.Email?.Trim(),
+                Username = username,
+                FullName = fullName,
+                PhoneNumber = phoneNumber,
+                Email = email,
                 PreferredLanguage = dto.PreferredLanguage
             };
 
@@ -51,8 +55,11 @@ public static class CustomersEndpoints
         else
         {
             // UPDATE
-            existing.FullName = dto.FullName.Trim();
-            existing.Email = dto.Email?.Trim();
+            existing.Username = username;
+            existing.FullName = fullName;
+            if (existingByPhone is null || existingByPhone.Id == existing.Id)
+                existing.PhoneNumber = phoneNumber;
+            existing.Email = email;
             existing.PreferredLanguage = dto.PreferredLanguage;
 
             await db.SaveChangesAsync();

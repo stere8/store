@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Container from "@/components/custom/Container";
-import { useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { usePathname, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/epoc-api";
 import { CartItem as TypeCartItem } from "@/types";
 import { IRootState } from "@/store";
@@ -16,60 +16,163 @@ import { RectangleButton } from "@/components/custom/RectangleButton";
 import { ChevronLeft } from "lucide-react";
 import CartItem from "./CartItem";
 import { FormattedMessage } from "react-intl";
+import { toast } from "@/hooks/use-toast";
+import { emptyToCart } from "@/store/cartSlice";
+import {
+  buildAuthRedirectUrl,
+  clearAuthResumeState,
+  getCustomerFullName,
+  getCustomerPhoneNumber,
+  readAuthResumeState,
+  upsertCustomerFromUser,
+  writeAuthResumeState,
+} from "@/lib/customer-auth";
 
 export default function Cart() {
+  const dispatch = useDispatch();
   const { cart } = useSelector(memoize((state: IRootState) => ({ ...state })));
   const { user } = useUser();
-  const { isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(false);
+  const hasAutoResumedReservation = useRef(false);
 
-  const proceedToShipping = async () => {
+  const vendorIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          cart.cartItems
+            .map((item) =>
+              typeof item.store === "string" ? item.store : item.store?._id
+            )
+            .filter((value): value is string => Boolean(value))
+        )
+      ),
+    [cart.cartItems]
+  );
+
+  const canReserve = cart.cartItems.length > 0 && vendorIds.length === 1;
+  const reservationNotice =
+    vendorIds.length > 1
+      ? "Reservations currently support one vendor per cart. Remove items from other sellers to continue."
+      : undefined;
+
+  const reserveCart = useCallback(async () => {
     setLoading(true);
 
     if (!isSignedIn) {
+      writeAuthResumeState({
+        action: "checkout",
+        returnPath: pathname,
+      });
       setLoading(false);
-      router.push("/sign-in");
+      router.push(buildAuthRedirectUrl("/sign-in", pathname));
       return;
     }
 
-    if (cart.cartItems.length > 8) {
+    if (!canReserve) {
       setLoading(false);
+      toast({
+        variant: "destructive",
+        title: "Reservation unavailable",
+        description:
+          reservationNotice || "Your cart must contain at least one item.",
+      });
+      return;
+    }
+
+    if (!user) {
+      setLoading(false);
+      toast({
+        variant: "destructive",
+        title: "Missing customer details",
+        description:
+          "Sign in with a complete customer profile before reserving your cart.",
+      });
+      return;
+    }
+
+    const customerName = getCustomerFullName(user).trim();
+    const customerPhone = getCustomerPhoneNumber(user).trim();
+    const customerEmail = user.primaryEmailAddress?.emailAddress?.trim() || null;
+
+    if (!customerName || !customerPhone) {
+      setLoading(false);
+      toast({
+        variant: "destructive",
+        title: "Missing customer details",
+        description:
+          "Sign in with a complete customer profile before reserving your cart.",
+      });
       return;
     }
 
     try {
-      const customerResponse = await apiClient.post("/api/customers", {
-        username: user?.id,
-        fullName: user?.fullName || user?.firstName || user?.id,
-        phoneNumber: `+250${(user?.id || "000000000")
-          .replace(/\D/g, "")
-          .slice(0, 9)
-          .padEnd(9, "0")}`,
-        email: user?.primaryEmailAddress?.emailAddress || null,
+      await upsertCustomerFromUser(user);
+
+      const response = await apiClient.post("/api/reservations", {
+        vendorId: vendorIds[0],
+        customerName,
+        customerPhone,
+        customerEmail,
         preferredLanguage: "en",
-      });
-
-      const ensureCartResponse = await apiClient.post("/api/carts/ensure", {
-        customerId: customerResponse.data.id,
-      });
-
-      const cartId = ensureCartResponse.data.id;
-
-      for (const item of cart.cartItems) {
-        await apiClient.post(`/api/carts/${cartId}/items`, {
+        items: cart.cartItems.map((item) => ({
           productId: item.variant._id,
           quantity: item.qty,
-        });
-      }
+        })),
+      });
 
-      router.push(`/cart/${cartId}`);
-    } catch (err) {
-      console.error("Error proceeding to shipping:", err);
+      clearAuthResumeState();
+      dispatch(emptyToCart());
+      router.push(`/reservation/${response.data.id}`);
+    } catch (err: any) {
+      console.error("Error creating reservation:", err);
+      toast({
+        variant: "destructive",
+        title: "Reservation failed",
+        description:
+          err?.response?.data?.error ||
+          "We could not reserve these items. Check vendor and stock availability and try again.",
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    canReserve,
+    cart.cartItems,
+    dispatch,
+    isSignedIn,
+    pathname,
+    reservationNotice,
+    router,
+    user,
+    vendorIds,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isLoaded ||
+      !isSignedIn ||
+      loading ||
+      hasAutoResumedReservation.current
+    ) {
+      return;
+    }
+
+    const resumeState = readAuthResumeState();
+
+    if (
+      !resumeState ||
+      resumeState.action !== "checkout" ||
+      resumeState.returnPath !== pathname
+    ) {
+      return;
+    }
+
+    hasAutoResumedReservation.current = true;
+    void reserveCart();
+  }, [isLoaded, isSignedIn, loading, pathname, reserveCart]);
 
   const subtotal =
     cart.cartItems.length > 0
@@ -82,11 +185,7 @@ export default function Cart() {
         )
       : 0;
 
-  const [total, setTotal] = useState(0);
-
-  useEffect(() => {
-    setTotal(subtotal);
-  }, [subtotal]);
+  const total = subtotal;
 
   return (
     <section className="my-10">
@@ -144,7 +243,9 @@ export default function Cart() {
             loading={loading}
             subtotal={subtotal}
             total={total}
-            proceedToShipping={proceedToShipping}
+            onReserve={reserveCart}
+            reservationDisabled={!canReserve}
+            reservationNotice={reservationNotice}
           />
         </div>
       </Container>

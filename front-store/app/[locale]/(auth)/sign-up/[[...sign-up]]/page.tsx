@@ -1,13 +1,9 @@
-import { SignUp } from "@clerk/nextjs";
+import CustomerAuthPage from "@/components/auth/CustomerAuthPage";
 import { Metadata } from "next";
 import React from "react";
 
 export default async function Page() {
-  return (
-    <div className="flex justify-center items-center py-20">
-      <SignUp />;
-    </div>
-  );
+  return <CustomerAuthPage mode="sign-up" />;
 }
 
 export const metadata: Metadata = {

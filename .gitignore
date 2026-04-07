@@ -18,3 +18,11 @@ front-store/.env.local
 /.vs/
 /.codex-temp/
 /EstorePoC/EStore.Api/appsettings.Development.json
+front-store/.next/
+front-store/node_modules/
+frontadmin/.next/
+frontadmin/node_modules/
+frontvendor/.next/
+frontvendor/node_modules/
+nextadmin/.next/
+nextadmin/node_modules/

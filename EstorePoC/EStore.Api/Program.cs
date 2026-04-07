@@ -134,6 +134,27 @@ app.MapGet("/api/vendors", async (AppDbContext db) =>
     return Results.Ok(list);
 });
 
+app.MapPatch("/api/vendors/{id:guid}/approve", async (AppDbContext db, Guid id, bool verified = true) =>
+{
+    var tenant = db.CurrentTenantId!;
+
+    if (!verified)
+        return Results.BadRequest(new { error = "Approval endpoint only supports verified=true." });
+
+    var vendor = await db.Vendors
+        .FirstOrDefaultAsync(v => v.Id == id && v.TenantId == tenant);
+    if (vendor is null)
+        return Results.NotFound(new { error = "Vendor not found." });
+
+    if (!vendor.Verified)
+    {
+        vendor.Verified = true;
+        await db.SaveChangesAsync();
+    }
+
+    return Results.Ok(vendor);
+});
+
 // =======================================================================
 // PRODUCTS
 // =======================================================================
@@ -358,8 +379,17 @@ app.MapDelete("/api/carts/{cartId:guid}/items/{productId:guid}", async (AppDbCon
 app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dto) =>
 {
     var tenantId = db.CurrentTenantId!;
+    if (dto.VendorId == Guid.Empty)
+        return Results.BadRequest(new { error = "VendorId is required." });
+
+    if (string.IsNullOrWhiteSpace(dto.CustomerName) || string.IsNullOrWhiteSpace(dto.CustomerPhone))
+        return Results.BadRequest(new { error = "CustomerName and CustomerPhone are required." });
+
     if (dto.Items is null || dto.Items.Count == 0)
         return Results.BadRequest(new { error = "At least one item is required." });
+
+    if (dto.Items.Any(i => i.ProductId == Guid.Empty))
+        return Results.BadRequest(new { error = "Each reservation item must include a ProductId." });
 
     var vendor = await db.Vendors.FirstOrDefaultAsync(v => v.Id == dto.VendorId && v.TenantId == tenantId && v.Active);
     if (vendor is null)
@@ -373,6 +403,7 @@ app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dt
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
+            Username = dto.CustomerPhone.Trim(),
             FullName = dto.CustomerName.Trim(),
             PhoneNumber = dto.CustomerPhone.Trim(),
             Email = dto.CustomerEmail?.Trim(),

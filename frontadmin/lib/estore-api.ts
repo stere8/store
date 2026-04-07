@@ -245,6 +245,15 @@ export async function createVendor(payload: {
   });
 }
 
+export async function approveVendor(id: string) {
+  return estoreRequest<EStoreVendor>(`/api/vendors/${id}/approve`, {
+    method: "PATCH",
+    query: {
+      verified: true,
+    },
+  });
+}
+
 export async function listCategories() {
   return estoreRequest<EStoreCategory[]>("/api/categories");
 }

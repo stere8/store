@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Cart } from "@/types";
 import Container from "@/components/custom/Container";
 import { Input } from "@/components/custom/Input";
@@ -10,7 +16,18 @@ import CurrencyFormat from "@/components/custom/CurrencyFormat";
 import { apiClient } from "@/lib/epoc-api";
 import Loading from "@/components/custom/Loading";
 import { toast } from "@/hooks/use-toast";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  buildAuthRedirectUrl,
+  clearAuthResumeState,
+  getCustomerFullName,
+  getCustomerPhoneNumber,
+  type ReservationDraft,
+  readAuthResumeState,
+  upsertCustomerFromUser,
+  writeAuthResumeState,
+} from "@/lib/customer-auth";
 
 type ReservationResponse = {
   id: string;
@@ -23,6 +40,10 @@ type ReservationResponse = {
 
 export default function CartReservation({ cart }: { cart: Cart }) {
   const { user } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -31,17 +52,16 @@ export default function CartReservation({ cart }: { cart: Cart }) {
   const [reservation, setReservation] = useState<ReservationResponse | null>(
     null
   );
+  const hasAutoSubmittedReservation = useRef(false);
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
-    setCustomerName(user.fullName || user.firstName || "");
+    setCustomerName(getCustomerFullName(user));
     setCustomerEmail(user.primaryEmailAddress?.emailAddress || "");
-    setCustomerPhone((current) =>
-      current || `+250${user.id.replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`
-    );
+    setCustomerPhone((current) => current || getCustomerPhoneNumber(user));
   }, [user]);
 
   const vendorIds = useMemo(
@@ -60,62 +80,162 @@ export default function CartReservation({ cart }: { cart: Cart }) {
 
   const canReserve = cart.cartItems.length > 0 && vendorIds.length === 1;
 
-  const submitReservation = async () => {
-    if (!canReserve) {
-      toast({
-        variant: "destructive",
-        title: "Reservation unavailable",
-        description:
-          vendorIds.length > 1
-            ? "The current API supports one vendor per reservation. Please reserve items from one seller at a time."
-            : "Your cart is empty.",
+  const submitReservation = useCallback(
+    async (draft?: ReservationDraft) => {
+      const reservationDraft = {
+        customerName: draft?.customerName ?? customerName,
+        customerPhone: draft?.customerPhone ?? customerPhone,
+        customerEmail: draft?.customerEmail ?? customerEmail,
+        customerNote: draft?.customerNote ?? customerNote,
+      };
+
+      if (!canReserve) {
+        toast({
+          variant: "destructive",
+          title: "Reservation unavailable",
+          description:
+            vendorIds.length > 1
+              ? "The current API supports one vendor per reservation. Please reserve items from one seller at a time."
+              : "Your cart is empty.",
+        });
+        return;
+      }
+
+      if (
+        !reservationDraft.customerName.trim() ||
+        !reservationDraft.customerPhone.trim()
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Missing information",
+          description: "Customer name and phone number are required.",
+        });
+        return;
+      }
+
+      if (!isSignedIn) {
+        writeAuthResumeState({
+          action: "reservation",
+          returnPath: pathname,
+          reservationDraft,
+        });
+        router.push(buildAuthRedirectUrl("/sign-in", pathname));
+        return;
+      }
+
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Sign-in incomplete",
+          description: "We could not load your customer profile. Please try again.",
+        });
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        await upsertCustomerFromUser(user);
+
+        const response = await apiClient.post("/api/reservations", {
+          vendorId: vendorIds[0],
+          customerName: reservationDraft.customerName.trim(),
+          customerPhone: reservationDraft.customerPhone.trim(),
+          customerEmail: reservationDraft.customerEmail.trim() || null,
+          customerNote: reservationDraft.customerNote.trim() || null,
+          preferredLanguage: "en",
+          items: cart.cartItems.map((item) => ({
+            productId: item.variant._id,
+            quantity: item.qty,
+          })),
+        });
+
+        clearAuthResumeState();
+        setReservation(response.data);
+        toast({
+          variant: "default",
+          title: "Reservation created",
+          description: "Your items are now reserved for pickup.",
+        });
+      } catch (error) {
+        console.error("Reservation creation failed", error);
+        toast({
+          variant: "destructive",
+          title: "Reservation failed",
+          description:
+            "The .NET API could not create the reservation. Check vendor and stock data in the local database.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      canReserve,
+      cart.cartItems,
+      customerEmail,
+      customerName,
+      customerNote,
+      customerPhone,
+      isSignedIn,
+      pathname,
+      router,
+      user,
+      vendorIds,
+    ]
+  );
+
+  useEffect(() => {
+    if (
+      !isLoaded ||
+      !isSignedIn ||
+      !user ||
+      loading ||
+      reservation ||
+      hasAutoSubmittedReservation.current
+    ) {
+      return;
+    }
+
+    const shouldAutoReserve = searchParams.get("autoReserve") === "1";
+    const storedResumeState = readAuthResumeState();
+
+    if (shouldAutoReserve) {
+      hasAutoSubmittedReservation.current = true;
+      router.replace(pathname);
+      void submitReservation({
+        customerName: getCustomerFullName(user),
+        customerPhone: getCustomerPhoneNumber(user),
+        customerEmail: user.primaryEmailAddress?.emailAddress || "",
+        customerNote,
       });
       return;
     }
 
-    if (!customerName.trim() || !customerPhone.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Missing information",
-        description: "Customer name and phone number are required.",
-      });
+    if (
+      storedResumeState?.action !== "reservation" ||
+      storedResumeState.returnPath !== pathname
+    ) {
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const response = await apiClient.post("/api/reservations", {
-        vendorId: vendorIds[0],
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
-        customerEmail: customerEmail.trim() || null,
-        customerNote: customerNote.trim() || null,
-        preferredLanguage: "en",
-        items: cart.cartItems.map((item) => ({
-          productId: item.variant._id,
-          quantity: item.qty,
-        })),
-      });
-
-      setReservation(response.data);
-      toast({
-        variant: "default",
-        title: "Reservation created",
-        description: "Your items are now reserved for pickup.",
-      });
-    } catch (error) {
-      console.error("Reservation creation failed", error);
-      toast({
-        variant: "destructive",
-        title: "Reservation failed",
-        description:
-          "The .NET API could not create the reservation. Check vendor and stock data in the local database.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    hasAutoSubmittedReservation.current = true;
+    setCustomerName(storedResumeState.reservationDraft.customerName);
+    setCustomerPhone(storedResumeState.reservationDraft.customerPhone);
+    setCustomerEmail(storedResumeState.reservationDraft.customerEmail);
+    setCustomerNote(storedResumeState.reservationDraft.customerNote);
+    void submitReservation(storedResumeState.reservationDraft);
+  }, [
+    customerNote,
+    isLoaded,
+    isSignedIn,
+    loading,
+    pathname,
+    reservation,
+    router,
+    searchParams,
+    submitReservation,
+    user,
+  ]);
 
   return (
     <section className="my-10">
@@ -169,7 +289,7 @@ export default function CartReservation({ cart }: { cart: Cart }) {
               variant="primary"
               icon="none"
               size="lg"
-              onClick={submitReservation}
+              onClick={() => void submitReservation()}
               disabled={!canReserve || loading}
               className="rounded-none"
             >

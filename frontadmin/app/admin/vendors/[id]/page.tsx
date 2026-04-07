@@ -117,8 +117,9 @@ export default async function VendorDetailPage({
           </dl>
 
           <div className="mt-6 rounded-[1.4rem] border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
-            EStore.Api currently exposes vendor create/list only. Admin-side vendor update, activate,
-            suspend, and delete endpoints are still missing and are listed in the API proposal doc.
+            Vendor verification is now supported from the admin vendors listing. Vendor profile edit,
+            activate/suspend, and delete endpoints are still backend gaps and remain in the API
+            proposal doc.
           </div>
         </Panel>
 

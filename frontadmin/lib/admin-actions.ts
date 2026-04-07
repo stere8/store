@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  approveVendor,
   changeReservationStatus,
   createCategory,
   createLocation,
@@ -48,6 +49,26 @@ export async function createVendorAction(formData: FormData) {
     goWithResult(returnTo, "success", "Vendor created.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create vendor.";
+    goWithResult(returnTo, "error", message);
+  }
+}
+
+export async function approveVendorAction(formData: FormData) {
+  const vendorId = asString(formData.get("vendorId"));
+  const returnTo = asString(formData.get("returnTo")) || "/admin/vendors";
+
+  if (!vendorId) {
+    goWithResult(returnTo, "error", "Vendor id is required.");
+  }
+
+  try {
+    await approveVendor(vendorId);
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/admin/vendors");
+    revalidatePath(`/admin/vendors/${vendorId}`);
+    goWithResult(returnTo, "success", "Vendor verified.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to verify vendor.";
     goWithResult(returnTo, "error", message);
   }
 }
