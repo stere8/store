@@ -7,6 +7,9 @@ namespace EStore.Api.Data;
 
 public static class DatabaseStartup
 {
+    private const string InitialMigrationId = "20260120104411_InitialAzureSql";
+    private const string InitialMigrationProductVersion = "8.0.8";
+
     public static void EnsureCreated(AppDbContext db, ILogger logger)
     {
         if (!db.Database.IsSqlServer())
@@ -17,6 +20,7 @@ public static class DatabaseStartup
 
         var connectionString = db.Database.GetConnectionString();
         TryRecoverBrokenLocalDbCatalog(connectionString, logger);
+        BaselineLegacyInitialMigrationIfNeeded(connectionString, logger);
 
         try
         {
@@ -24,23 +28,69 @@ public static class DatabaseStartup
         }
         catch (SqlException ex) when (TryRecoverBrokenLocalDbCatalog(connectionString, logger, ex))
         {
+            BaselineLegacyInitialMigrationIfNeeded(connectionString, logger);
             db.Database.Migrate();
         }
     }
 
-    public static bool HasApplicationData(AppDbContext db) =>
-        db.Locations.Any() ||
-        db.Categories.Any() ||
-        db.Vendors.Any() ||
-        db.Customers.Any() ||
-        db.Products.Any() ||
-        db.Reservations.Any() ||
-        db.ShoppingCarts.Any() ||
-        db.Reviews.Any();
+    public static bool HasSeedProducts(AppDbContext db, string tenantId) =>
+        db.Products.Any(x => x.TenantId == tenantId);
 
-    private static bool TryRecoverBrokenLocalDbCatalog(string? connectionString, ILogger logger, Exception? trigger = null)
+    private static void BaselineLegacyInitialMigrationIfNeeded(
+        string? connectionString,
+        ILogger logger)
     {
-        if (!TryBuildMasterConnectionString(connectionString, out var masterConnectionString, out var databaseName))
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return;
+        }
+
+        try
+        {
+            using var connection = new SqlConnection(connectionString);
+            connection.Open();
+
+            if (!HasInitialSchemaTables(connection))
+            {
+                return;
+            }
+
+            EnsureMigrationsHistoryTable(connection);
+
+            if (HasAppliedMigration(connection, InitialMigrationId))
+            {
+                return;
+            }
+
+            if (GetAppliedMigrationCount(connection) > 0)
+            {
+                return;
+            }
+
+            InsertMigrationHistoryRow(
+                connection,
+                InitialMigrationId,
+                InitialMigrationProductVersion);
+
+            logger.LogWarning(
+                "Detected a legacy SQL schema with no recorded initial migration. Marked migration {MigrationId} as applied so later migrations can run.",
+                InitialMigrationId);
+        }
+        catch
+        {
+            // If the database cannot be inspected yet, let normal migration flow handle it.
+        }
+    }
+
+    private static bool TryRecoverBrokenLocalDbCatalog(
+        string? connectionString,
+        ILogger logger,
+        Exception? trigger = null)
+    {
+        if (!TryBuildMasterConnectionString(
+                connectionString,
+                out var masterConnectionString,
+                out var databaseName))
         {
             return false;
         }
@@ -74,7 +124,10 @@ public static class DatabaseStartup
         return !DatabaseExists(connection, databaseName);
     }
 
-    private static bool TryBuildMasterConnectionString(string? connectionString, out string masterConnectionString, out string databaseName)
+    private static bool TryBuildMasterConnectionString(
+        string? connectionString,
+        out string masterConnectionString,
+        out string databaseName)
     {
         masterConnectionString = string.Empty;
         databaseName = string.Empty;
@@ -98,7 +151,9 @@ public static class DatabaseStartup
         return true;
     }
 
-    private static (bool Exists, bool HasDbAccess, List<string> MissingFiles) InspectDatabase(SqlConnection connection, string databaseName)
+    private static (bool Exists, bool HasDbAccess, List<string> MissingFiles) InspectDatabase(
+        SqlConnection connection,
+        string databaseName)
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -110,7 +165,11 @@ public static class DatabaseStartup
             LEFT JOIN sys.master_files AS mf ON d.database_id = mf.database_id
             WHERE d.name = @databaseName
             """;
-        command.Parameters.Add(new SqlParameter("@databaseName", SqlDbType.NVarChar, 128) { Value = databaseName });
+        command.Parameters.Add(
+            new SqlParameter("@databaseName", SqlDbType.NVarChar, 128)
+            {
+                Value = databaseName,
+            });
 
         using var reader = command.ExecuteReader();
 
@@ -138,7 +197,10 @@ public static class DatabaseStartup
         return (exists, hasDbAccess, missingFiles);
     }
 
-    private static void DropDatabaseCatalogEntry(SqlConnection connection, string databaseName, ILogger logger)
+    private static void DropDatabaseCatalogEntry(
+        SqlConnection connection,
+        string databaseName,
+        ILogger logger)
     {
         using var command = connection.CreateCommand();
         command.CommandText = $"DROP DATABASE [{EscapeSqlIdentifier(databaseName)}]";
@@ -165,9 +227,98 @@ public static class DatabaseStartup
     {
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM sys.databases WHERE name = @databaseName";
-        command.Parameters.Add(new SqlParameter("@databaseName", SqlDbType.NVarChar, 128) { Value = databaseName });
+        command.Parameters.Add(
+            new SqlParameter("@databaseName", SqlDbType.NVarChar, 128)
+            {
+                Value = databaseName,
+            });
         return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 
-    private static string EscapeSqlIdentifier(string value) => value.Replace("]", "]]", StringComparison.Ordinal);
+    private static bool HasInitialSchemaTables(SqlConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM sys.tables
+            WHERE name IN (
+                'Categories',
+                'Customers',
+                'Locations',
+                'Products',
+                'ReservationItems',
+                'Reservations',
+                'Reviews',
+                'ShoppingCarts',
+                'ShoppingCartItems',
+                'Tenants',
+                'Vendors')
+            """;
+        return Convert.ToInt32(command.ExecuteScalar()) == 11;
+    }
+
+    private static void EnsureMigrationsHistoryTable(SqlConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
+            BEGIN
+                CREATE TABLE [__EFMigrationsHistory] (
+                    [MigrationId] nvarchar(150) NOT NULL,
+                    [ProductVersion] nvarchar(32) NOT NULL,
+                    CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+                );
+            END
+            """;
+        command.ExecuteNonQuery();
+    }
+
+    private static bool HasAppliedMigration(SqlConnection connection, string migrationId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM [__EFMigrationsHistory]
+            WHERE [MigrationId] = @migrationId
+            """;
+        command.Parameters.Add(
+            new SqlParameter("@migrationId", SqlDbType.NVarChar, 150)
+            {
+                Value = migrationId,
+            });
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
+    }
+
+    private static int GetAppliedMigrationCount(SqlConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM [__EFMigrationsHistory]";
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    private static void InsertMigrationHistoryRow(
+        SqlConnection connection,
+        string migrationId,
+        string productVersion)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+            VALUES (@migrationId, @productVersion)
+            """;
+        command.Parameters.Add(
+            new SqlParameter("@migrationId", SqlDbType.NVarChar, 150)
+            {
+                Value = migrationId,
+            });
+        command.Parameters.Add(
+            new SqlParameter("@productVersion", SqlDbType.NVarChar, 32)
+            {
+                Value = productVersion,
+            });
+        command.ExecuteNonQuery();
+    }
+
+    private static string EscapeSqlIdentifier(string value) =>
+        value.Replace("]", "]]", StringComparison.Ordinal);
 }

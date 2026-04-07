@@ -39,6 +39,8 @@ namespace EStore.Api.Data
                 e.HasKey(x => x.Id);
                 e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
                 e.Property(x => x.Name).HasMaxLength(160).IsRequired();
+                e.Property(x => x.Latitude).HasPrecision(18, 2);
+                e.Property(x => x.Longitude).HasPrecision(18, 2);
             });
 
             // Vendor
@@ -121,6 +123,7 @@ namespace EStore.Api.Data
                 e.HasKey(x => x.Id);
                 e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
                 e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Price).HasPrecision(18, 2);
 
                 e.HasOne(x => x.Vendor).WithMany(v => v.Products)
                     .HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
@@ -139,6 +142,7 @@ namespace EStore.Api.Data
                 e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
                 e.Property(x => x.ReservationNumber).HasMaxLength(48).IsRequired();
                 e.Property(x => x.PickupCode).HasMaxLength(16).IsRequired();
+                e.Property(x => x.TotalAmount).HasPrecision(18, 2);
 
                 e.HasOne(x => x.Tenant).WithMany()
                     .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
@@ -157,6 +161,8 @@ namespace EStore.Api.Data
             {
                 e.HasKey(x => x.Id);
                 e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+                e.Property(x => x.LineTotal).HasPrecision(18, 2);
 
                 e.HasOne(x => x.Reservation).WithMany(r => r.Items)
                     .HasForeignKey(x => x.ReservationId).OnDelete(DeleteBehavior.Cascade);
@@ -180,6 +186,8 @@ namespace EStore.Api.Data
             m.Entity<ShoppingCartItem>(e =>
             {
                 e.HasKey(x => x.Id);
+                e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+                e.Property(x => x.LineTotal).HasPrecision(18, 2);
 
                 e.HasOne(x => x.ShoppingCart).WithMany(c => c.Items)
                     .HasForeignKey(x => x.ShoppingCartId).OnDelete(DeleteBehavior.Cascade);
@@ -214,6 +222,10 @@ namespace EStore.Api.Data
             m.Entity<ReservationItem>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Review>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<ShoppingCart>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<ShoppingCartItem>().HasQueryFilter(x =>
+                CurrentTenantId == null ||
+                ((x.ShoppingCart != null && x.ShoppingCart.TenantId == CurrentTenantId) &&
+                 (x.Product != null && x.Product.TenantId == CurrentTenantId)));
 
             // Seed minimal tenants
             SeedMinimalTenants(m);

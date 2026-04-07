@@ -90,7 +90,7 @@ if "%port_in_use%"=="1" (
   exit /b 0
 )
 
-set "launch_command=dotnet run --no-launch-profile -- --urls http://localhost:5000"
+set "launch_command=set ASPNETCORE_ENVIRONMENT=Development && set DOTNET_ENVIRONMENT=Development && dotnet run --no-launch-profile -- --urls http://localhost:5000"
 call :start_terminal "%window_title%" "%workdir%" "%shell_title%"
 exit /b 0
 
