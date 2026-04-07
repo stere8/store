@@ -375,6 +375,18 @@ app.MapDelete("/api/carts/{cartId:guid}/items/{productId:guid}", async (AppDbCon
 // RESERVATIONS
 // =======================================================================
 
+// List all reservations for the current tenant
+app.MapGet("/api/reservations", async (AppDbContext db) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var reservations = await db.Reservations
+        .Where(r => r.TenantId == tenant)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+
+    return Results.Ok(reservations);
+});
+
 // Create a reservation
 app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dto) =>
 {
@@ -585,6 +597,20 @@ app.MapPatch("/api/reservations/{reservationId:guid}/status",
         return Results.Ok(reservation);
     });
 
+app.MapPatch("/api/reservations/{reservationId:guid}/note",
+    async (AppDbContext db, Guid reservationId, UpdateReservationNoteDto dto) =>
+    {
+        var tenant = db.CurrentTenantId!;
+        var reservation = await db.Reservations
+            .FirstOrDefaultAsync(r => r.Id == reservationId && r.TenantId == tenant);
+        if (reservation is null)
+            return Results.NotFound(new { error = "Reservation not found." });
+
+        reservation.CustomerNotes = dto.Note?.Trim();
+        await db.SaveChangesAsync();
+        return Results.Ok(reservation);
+    });
+
 // =======================================================================
 // REVIEWS
 // =======================================================================
@@ -676,7 +702,13 @@ void SeedDemoCatalog(WebApplication webApp)
     using var scope = webApp.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    db.Database.EnsureCreated();
+    DatabaseStartup.EnsureCreated(db, webApp.Logger);
+
+    if (DatabaseStartup.HasApplicationData(db))
+    {
+        webApp.Logger.LogInformation("Skipping demo seed because the database already contains application data.");
+        return;
+    }
 
     const string tenantId = "kigali-city-mall";
     var now = DateTimeOffset.UtcNow;
@@ -1037,6 +1069,7 @@ public record CreateReservationItemDto(Guid ProductId, int Quantity);
 public record EnsureCartDto(Guid CustomerId);
 public record AddCartItemDto(Guid ProductId, int Quantity);
 public record CreateReviewDto(int Rating, string? Title, string? Comment, Guid CustomerId);
+public record UpdateReservationNoteDto(string? Note);
 
 // =======================================================================
 // HELPERS

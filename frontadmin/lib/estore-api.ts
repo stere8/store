@@ -75,6 +75,13 @@ export type EStoreReview = {
   customerId: string;
 };
 
+type EStoreReviewListResponse = {
+  total: number;
+  page: number;
+  pageSize: number;
+  items: EStoreReview[];
+};
+
 export type EStoreReservationItem = {
   id: string;
   tenantId?: string;
@@ -370,7 +377,7 @@ export async function listReservations() {
 }
 
 export async function listVendorReservations(vendorId: string) {
-  return estoreRequest<EStoreReservation[]>(`/api/reservations/vendor/${vendorId}`);
+  return estoreRequest<EStoreReservation[]>(`/api/vendors/${vendorId}/reservations`);
 }
 
 export async function getReservation(id: string) {
@@ -389,8 +396,20 @@ export async function changeReservationStatus(
   id: string,
   action: "confirm" | "complete" | "reject" | "cancel"
 ) {
-  return estoreRequest<EStoreReservation>(`/api/reservations/${id}/${action}`, {
+  const nextStatus =
+    action === "confirm"
+      ? "Confirmed"
+      : action === "complete"
+        ? "Completed"
+        : action === "reject"
+          ? "Rejected"
+          : "Cancelled";
+
+  return estoreRequest<EStoreReservation>(`/api/reservations/${id}/status`, {
     method: "PATCH",
+    query: {
+      status: nextStatus,
+    },
   });
 }
 
@@ -402,5 +421,8 @@ export async function updateReservationNote(id: string, note: string) {
 }
 
 export async function listProductReviews(productId: string) {
-  return estoreRequest<EStoreReview[]>(`/api/reviews/product/${productId}`);
+  const response = await estoreRequest<EStoreReviewListResponse>(
+    `/api/products/${productId}/reviews`
+  );
+  return response.items;
 }
