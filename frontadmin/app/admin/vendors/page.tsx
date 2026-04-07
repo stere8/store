@@ -59,7 +59,7 @@ export default async function VendorsPage({
       <PageHeader
         eyebrow="Admin / Vendors"
         title="Vendor administration"
-        description="Create, verify, and audit mall vendors directly against EStore.Api. Vendor profile editing is still a backend gap, but verification is now available here."
+        description="Create, verify, and audit mall vendors directly against EStore.Api. Vendor portal registration codes are generated only after approval."
         actions={
           <Link href="/admin/locations" className={secondaryLinkClass}>
             Manage locations
@@ -204,6 +204,7 @@ export default async function VendorsPage({
                   <th className="px-4 py-3 font-medium">Vendor</th>
                   <th className="px-4 py-3 font-medium">Location</th>
                   <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Portal</th>
                   <th className="px-4 py-3 font-medium">Products</th>
                   <th className="px-4 py-3 font-medium">Reservations</th>
                   <th className="px-4 py-3 font-medium">Actions</th>
@@ -256,6 +257,31 @@ export default async function VendorsPage({
                             }`}
                           >
                             {vendor.verified ? "Verified" : "Pending"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`${badgeClass} ${
+                              vendor.hasAccount
+                                ? "bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/30"
+                                : vendor.verified
+                                  ? "bg-cyan-400/15 text-cyan-200 ring-1 ring-cyan-400/30"
+                                  : "bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/30"
+                            }`}
+                          >
+                            {vendor.hasAccount
+                              ? "Account active"
+                              : vendor.verified
+                                ? "Code ready"
+                                : "Awaiting approval"}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {vendor.accountEmail ||
+                              (vendor.verified
+                                ? "Open vendor detail to copy the registration code."
+                                : "Approve the vendor first to generate the registration code.")}
                           </span>
                         </div>
                       </td>

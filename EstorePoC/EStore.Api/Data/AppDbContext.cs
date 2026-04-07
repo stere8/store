@@ -49,6 +49,10 @@ namespace EStore.Api.Data
                 e.Property(x => x.DisplayName).HasMaxLength(160).IsRequired();
                 e.Property(x => x.LegalName).HasMaxLength(180).IsRequired();
                 e.Property(x => x.ContactPhone).HasMaxLength(32).IsRequired();
+                e.Property(x => x.RegistrationCode).HasMaxLength(24);
+                e.Property(x => x.AccountEmail).HasMaxLength(160);
+                e.Property(x => x.PasswordHash).HasMaxLength(256);
+                e.Property(x => x.PasswordSalt).HasMaxLength(128);
 
                 e.HasOne(x => x.Tenant).WithMany(t => t.Vendors)
                     .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
@@ -57,6 +61,15 @@ namespace EStore.Api.Data
                     .HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
 
                 e.HasIndex(x => new { x.TenantId, x.LegalName });
+                e.HasIndex(x => new { x.TenantId, x.ContactEmail })
+                    .IsUnique()
+                    .HasFilter("[ContactEmail] IS NOT NULL");
+                e.HasIndex(x => new { x.TenantId, x.RegistrationCode })
+                    .IsUnique()
+                    .HasFilter("[RegistrationCode] IS NOT NULL");
+                e.HasIndex(x => new { x.TenantId, x.AccountEmail })
+                    .IsUnique()
+                    .HasFilter("[AccountEmail] IS NOT NULL");
             });
 
             // Customer

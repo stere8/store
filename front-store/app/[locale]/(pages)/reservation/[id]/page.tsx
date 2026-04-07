@@ -32,6 +32,8 @@ export default async function Page({ params }: ReservationPageProps) {
     notFound();
   }
 
+  const vendorName = reservation.vendor?.displayName || "Assigned vendor";
+
   return (
     <>
       <Breadcrumbs page="Reservation" />
@@ -55,7 +57,7 @@ export default async function Page({ params }: ReservationPageProps) {
               </p>
             </div>
 
-            <div className="grid gap-4 border border-gray-100 bg-gray-50 p-6 md:grid-cols-3">
+            <div className="grid gap-4 border border-gray-100 bg-gray-50 p-6 md:grid-cols-4">
               <div className="flex flex-col gap-1">
                 <span className="text-xs uppercase tracking-[0.18em] text-gray-500">
                   Reservation
@@ -76,6 +78,15 @@ export default async function Page({ params }: ReservationPageProps) {
 
               <div className="flex flex-col gap-1">
                 <span className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                  Vendor
+                </span>
+                <span className="text-lg font-semibold text-gray-900">
+                  {vendorName}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-[0.18em] text-gray-500">
                   Expires
                 </span>
                 <span className="text-lg font-semibold text-gray-900">
@@ -85,7 +96,7 @@ export default async function Page({ params }: ReservationPageProps) {
             </div>
 
             <p className="text-sm text-gray-500">
-              Keep this pickup code handy. The vendor will use it to confirm
+              Keep this pickup code handy. {vendorName} will use it to confirm
               your reservation at collection time.
             </p>
           </div>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { readVendorAccessToken } from "@/lib/vendor-session";
 
 export default function HomePage() {
-  redirect("/dashboard");
+  redirect(readVendorAccessToken() ? "/dashboard" : "/login");
 }

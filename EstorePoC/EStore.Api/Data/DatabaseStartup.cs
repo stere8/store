@@ -20,11 +20,11 @@ public static class DatabaseStartup
 
         try
         {
-            db.Database.EnsureCreated();
+            db.Database.Migrate();
         }
         catch (SqlException ex) when (TryRecoverBrokenLocalDbCatalog(connectionString, logger, ex))
         {
-            db.Database.EnsureCreated();
+            db.Database.Migrate();
         }
     }
 
