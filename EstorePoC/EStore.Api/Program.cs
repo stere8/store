@@ -11,17 +11,9 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = SanitizeSqlServerConnectionString(
+    builder.Configuration.GetConnectionString("DefaultConnection"));
 var useInMemoryDatabase = string.IsNullOrWhiteSpace(connectionString);
-string? databaseFallbackReason = null;
-
-if (!useInMemoryDatabase &&
-    builder.Environment.IsDevelopment() &&
-    ShouldFallbackToInMemory(connectionString!, out var fallbackReason))
-{
-    useInMemoryDatabase = true;
-    databaseFallbackReason = fallbackReason;
-}
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -55,9 +47,14 @@ app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-if (!string.IsNullOrWhiteSpace(databaseFallbackReason))
+if (useInMemoryDatabase)
 {
-    app.Logger.LogWarning("{Reason}", databaseFallbackReason);
+    app.Logger.LogWarning(
+        "Using the in-memory database because ConnectionStrings:DefaultConnection is not configured.");
+}
+else
+{
+    app.Logger.LogInformation("Using SQL Server with the configured DefaultConnection.");
 }
 
 // Tenant extractor (header "X-Tenant-Id" or query "tenantId"; default Kigali City Mall)
@@ -870,14 +867,16 @@ void SeedDemoCatalog(WebApplication webApp)
     var vendorAuthService = scope.ServiceProvider.GetRequiredService<VendorAuthService>();
 
     DatabaseStartup.EnsureCreated(db, webApp.Logger);
+    const string tenantId = "kigali-city-mall";
 
-    if (DatabaseStartup.HasApplicationData(db))
+    if (DatabaseStartup.HasSeedProducts(db, tenantId))
     {
-        webApp.Logger.LogInformation("Skipping demo seed because the database already contains application data.");
+        webApp.Logger.LogInformation(
+            "Skipping demo seed because tenant {TenantId} already contains products.",
+            tenantId);
         return;
     }
 
-    const string tenantId = "kigali-city-mall";
     var now = DateTimeOffset.UtcNow;
 
     var existingLocations = db.Locations.Where(x => x.TenantId == tenantId).ToList();
@@ -1272,97 +1271,18 @@ void EnsureVendorAccessSetup(WebApplication webApp)
     }
 }
 
-static bool ShouldFallbackToInMemory(string connectionString, out string reason)
+static string SanitizeSqlServerConnectionString(string? connectionString)
 {
-    reason = string.Empty;
-
-    if (!IsLocalDbConnectionString(connectionString))
+    if (string.IsNullOrWhiteSpace(connectionString))
     {
-        return false;
+        return string.Empty;
     }
 
-    try
-    {
-        using var connection = new SqlConnection(connectionString);
-        connection.Open();
-        return false;
-    }
-    catch (SqlException openError)
-    {
-        if (TryCheckDatabaseExists(connectionString, out var databaseName, out var exists, out var probeError))
-        {
-            if (!exists)
-            {
-                return false;
-            }
-
-            reason =
-                $"Falling back to the in-memory database because LocalDB database '{databaseName}' exists but cannot be opened by the current login. {openError.Message}";
-            return true;
-        }
-
-        reason =
-            $"Falling back to the in-memory database because the configured LocalDB connection could not be verified. {probeError ?? openError.Message}";
-        return true;
-    }
-    catch (Exception error)
-    {
-        reason =
-            $"Falling back to the in-memory database because the configured LocalDB connection failed. {error.Message}";
-        return true;
-    }
-}
-
-static bool IsLocalDbConnectionString(string connectionString)
-{
-    try
-    {
-        var builder = new SqlConnectionStringBuilder(connectionString);
-        return builder.DataSource.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
-    }
-    catch
-    {
-        return connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
-    }
-}
-
-static bool TryCheckDatabaseExists(
-    string connectionString,
-    out string databaseName,
-    out bool exists,
-    out string? error)
-{
-    exists = false;
-    error = null;
-
-    try
-    {
-        var builder = new SqlConnectionStringBuilder(connectionString);
-        databaseName = builder.InitialCatalog;
-
-        if (string.IsNullOrWhiteSpace(databaseName))
-        {
-            return true;
-        }
-
-        builder.InitialCatalog = "master";
-
-        using var connection = new SqlConnection(builder.ConnectionString);
-        connection.Open();
-
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM sys.databases WHERE name = @databaseName";
-        command.Parameters.AddWithValue("@databaseName", databaseName);
-
-        exists = Convert.ToInt32(command.ExecuteScalar()) > 0;
-        return true;
-    }
-    catch (Exception ex)
-    {
-        databaseName = string.Empty;
-        error = ex.Message;
-        return false;
-    }
+    return string.Join(
+        ';',
+        connectionString
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(part => !part.StartsWith("Command Timeout=", StringComparison.OrdinalIgnoreCase)));
 }
 
 // =======================================================================
