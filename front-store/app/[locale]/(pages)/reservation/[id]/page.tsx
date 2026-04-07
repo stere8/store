@@ -110,6 +110,6 @@ export const metadata: Metadata = {
   title: "Reservation - E-City - Ecommerce",
   description: "Reservation confirmation and pickup details.",
   icons: {
-    icon: "/assets/images/logo_dark.svg",
+    icon: "/assets/images/logo.png",
   },
 };

@@ -24,6 +24,6 @@ export const metadata: Metadata = {
   title: "Reserve Cart - E-City - Ecommerce",
   description: "Reserve storefront products using the .NET API checkout flow.",
   icons: {
-    icon: "/assets/images/logo_dark.svg",
+    icon: "/assets/images/logo.png",
   },
 };

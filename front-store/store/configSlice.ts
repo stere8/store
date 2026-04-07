@@ -1,6 +1,8 @@
 import { TypeConfigurationModel } from "@/types/models";
 import { createSlice } from "@reduxjs/toolkit";
 
+const defaultSiteLogo = "/assets/images/logo.png";
+
 export interface ConfigState {
   siteDetails: TypeConfigurationModel;
   languages: [];
@@ -15,7 +17,7 @@ const initialState: ConfigState = {
     address: "",
     email: "",
     youtube: "",
-    logo: "",
+    logo: defaultSiteLogo,
     tiktok: "",
     facebook: "",
     twitter: "",
@@ -30,7 +32,11 @@ export const cartSlice = createSlice({
 
   reducers: {
     addConfig(state, action) {
-      state.siteDetails = action.payload;
+      state.siteDetails = {
+        ...state.siteDetails,
+        ...action.payload,
+        logo: action.payload?.logo || defaultSiteLogo,
+      };
     },
   },
 });

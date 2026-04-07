@@ -45,7 +45,7 @@ type ApiReview = {
 };
 
 const placeholderImage = "/assets/products/image.png";
-const placeholderAvatar = "/assets/images/logo_dark.svg";
+const placeholderAvatar = "/assets/images/logo.png";
 
 const toSlug = (value: string) =>
   value

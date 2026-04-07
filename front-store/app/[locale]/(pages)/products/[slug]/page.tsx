@@ -48,7 +48,7 @@ export async function generateMetadata({
     title: `Buy ${params.slug} - E-city`,
     description: "Online Ecommerce for selling anything electronics",
     icons: {
-      icon: "/assets/images/logo_dark.svg",
+      icon: "/assets/images/logo.png",
     },
     openGraph: mergeOpenGraph({
       title: `Buy ${product.name.substring(0, 60)}`,
