@@ -26,12 +26,26 @@ public class Vendor
     [MaxLength(160)]
     public string? ContactEmail { get; set; }
 
+    [MaxLength(24)]
+    public string? RegistrationCode { get; set; }
+
+    [MaxLength(160)]
+    public string? AccountEmail { get; set; }
+
+    [MaxLength(256)]
+    public string? PasswordHash { get; set; }
+
+    [MaxLength(128)]
+    public string? PasswordSalt { get; set; }
+
     public string? Description { get; set; }
 
     public bool Active { get; set; } = true;
     public bool Verified { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? AccountRegisteredAt { get; set; }
+    public DateTimeOffset? LastLoginAt { get; set; }
 
     public ICollection<Product> Products { get; set; } = new List<Product>();
 }

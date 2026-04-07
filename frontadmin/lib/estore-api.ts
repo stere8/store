@@ -30,6 +30,14 @@ export type EStoreVendor = {
   active: boolean;
   verified: boolean;
   createdAt: string;
+  hasAccount: boolean;
+  accountEmail?: string | null;
+  accountRegisteredAt?: string | null;
+  lastLoginAt?: string | null;
+};
+
+export type EStoreVendorDetail = EStoreVendor & {
+  registrationCode?: string | null;
 };
 
 export type EStoreCategory = {
@@ -243,8 +251,15 @@ export async function listVendors() {
 }
 
 export async function getVendor(id: string) {
-  const vendors = await listVendors();
-  return vendors.find((vendor) => vendor.id === id) ?? null;
+  try {
+    return await estoreRequest<EStoreVendorDetail>(`/api/vendors/${id}`);
+  } catch (error) {
+    if (error instanceof EStoreApiError && error.status === 404) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function createVendor(payload: {
@@ -255,7 +270,7 @@ export async function createVendor(payload: {
   description?: string;
   locationId?: string;
 }) {
-  return estoreRequest<EStoreVendor>("/api/vendors/register", {
+  return estoreRequest<EStoreVendorDetail>("/api/vendors/register", {
     method: "POST",
     body: JSON.stringify({
       ...payload,

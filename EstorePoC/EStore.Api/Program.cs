@@ -40,11 +40,13 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
+builder.Services.AddDataProtection();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Payment strategy placeholder (currently unused)
 builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>();
+builder.Services.AddSingleton<VendorAuthService>();
 
 var app = builder.Build();
 
@@ -77,6 +79,8 @@ app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTimeOffset.UtcN
 // Reuse the endpoint modules for routes the storefront already depends on.
 app.MapGroup("/api/categories").MapCategoriesEndpoints();
 app.MapGroup("/api/customers").MapCustomersEndpoints();
+app.MapGroup("/api/vendor-auth").MapVendorAuthEndpoints();
+app.MapGroup("/api/vendor-portal").MapVendorPortalEndpoints();
 
 // =======================================================================
 // LOCATIONS
@@ -115,10 +119,22 @@ app.MapGet("/api/locations", async (AppDbContext db) =>
 app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto) =>
 {
     var tenant = db.CurrentTenantId!;
+    var contactEmail = dto.ContactEmail?.Trim().ToLowerInvariant();
     if (dto.LocationId is Guid locId)
     {
         var valid = await db.Locations.AnyAsync(l => l.Id == locId && l.TenantId == tenant);
         if (!valid) return Results.BadRequest(new { error = "Location not found in this tenant." });
+    }
+
+    if (!string.IsNullOrWhiteSpace(contactEmail))
+    {
+        var emailExists = await db.Vendors.AnyAsync(v =>
+            v.TenantId == tenant &&
+            (v.ContactEmail == contactEmail || v.AccountEmail == contactEmail));
+        if (emailExists)
+        {
+            return Results.BadRequest(new { error = "That vendor email is already in use for this tenant." });
+        }
     }
 
     var v = new Vendor
@@ -128,7 +144,8 @@ app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto
         DisplayName = dto.DisplayName.Trim(),
         LegalName = dto.LegalName.Trim(),
         ContactPhone = dto.ContactPhone.Trim(),
-        ContactEmail = dto.ContactEmail?.Trim(),
+        ContactEmail = contactEmail,
+        RegistrationCode = null,
         Description = dto.Description?.Trim(),
         LocationId = dto.LocationId,
         Active = true,
@@ -137,7 +154,23 @@ app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto
     };
     db.Vendors.Add(v);
     await db.SaveChangesAsync();
-    return Results.Created($"/api/vendors/{v.Id}", v);
+    return Results.Created($"/api/vendors/{v.Id}", new VendorDetailDto(
+        v.Id,
+        v.TenantId,
+        v.LocationId,
+        v.DisplayName,
+        v.LegalName,
+        v.ContactPhone,
+        v.ContactEmail,
+        v.Description,
+        v.Active,
+        v.Verified,
+        v.CreatedAt,
+        false,
+        v.RegistrationCode,
+        v.AccountEmail,
+        v.AccountRegisteredAt,
+        v.LastLoginAt));
 });
 
 // List vendors for current tenant
@@ -147,8 +180,53 @@ app.MapGet("/api/vendors", async (AppDbContext db) =>
     var list = await db.Vendors
         .Where(x => x.TenantId == tenant)
         .OrderByDescending(x => x.CreatedAt)
+        .Select(v => new VendorSummaryDto(
+            v.Id,
+            v.TenantId,
+            v.LocationId,
+            v.DisplayName,
+            v.LegalName,
+            v.ContactPhone,
+            v.ContactEmail,
+            v.Description,
+            v.Active,
+            v.Verified,
+            v.CreatedAt,
+            v.AccountEmail != null,
+            v.AccountEmail,
+            v.AccountRegisteredAt,
+            v.LastLoginAt))
         .ToListAsync();
     return Results.Ok(list);
+});
+
+app.MapGet("/api/vendors/{id:guid}", async (AppDbContext db, Guid id) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var vendor = await db.Vendors
+        .Where(v => v.TenantId == tenant && v.Id == id)
+        .Select(v => new VendorDetailDto(
+            v.Id,
+            v.TenantId,
+            v.LocationId,
+            v.DisplayName,
+            v.LegalName,
+            v.ContactPhone,
+            v.ContactEmail,
+            v.Description,
+            v.Active,
+            v.Verified,
+            v.CreatedAt,
+            v.AccountEmail != null,
+            v.RegistrationCode,
+            v.AccountEmail,
+            v.AccountRegisteredAt,
+            v.LastLoginAt))
+        .FirstOrDefaultAsync();
+
+    return vendor is null
+        ? Results.NotFound(new { error = "Vendor not found." })
+        : Results.Ok(vendor);
 });
 
 app.MapPatch("/api/vendors/{id:guid}/approve", async (AppDbContext db, Guid id, bool verified = true) =>
@@ -166,10 +244,31 @@ app.MapPatch("/api/vendors/{id:guid}/approve", async (AppDbContext db, Guid id, 
     if (!vendor.Verified)
     {
         vendor.Verified = true;
-        await db.SaveChangesAsync();
     }
 
-    return Results.Ok(vendor);
+    if (string.IsNullOrWhiteSpace(vendor.RegistrationCode))
+    {
+        vendor.RegistrationCode = ProgramHelpers.GenerateRegistrationCode();
+    }
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new VendorSummaryDto(
+        vendor.Id,
+        vendor.TenantId,
+        vendor.LocationId,
+        vendor.DisplayName,
+        vendor.LegalName,
+        vendor.ContactPhone,
+        vendor.ContactEmail,
+        vendor.Description,
+        vendor.Active,
+        vendor.Verified,
+        vendor.CreatedAt,
+        vendor.AccountEmail != null,
+        vendor.AccountEmail,
+        vendor.AccountRegisteredAt,
+        vendor.LastLoginAt));
 });
 
 // =======================================================================
@@ -506,7 +605,15 @@ app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dt
     reservation.TotalAmount = total;
     db.Reservations.Add(reservation);
     await db.SaveChangesAsync();
-    return Results.Created($"/api/reservations/{reservation.Id}", reservation);
+
+    var hydratedReservation = await db.Reservations
+        .Include(r => r.Customer)
+        .Include(r => r.Vendor)
+        .Include(r => r.Items)
+        .ThenInclude(i => i.Product)
+        .FirstAsync(r => r.Id == reservation.Id);
+
+    return Results.Created($"/api/reservations/{reservation.Id}", hydratedReservation);
 });
 
 // List reservations for current tenant
@@ -514,7 +621,10 @@ app.MapGet("/api/reservations", async (AppDbContext db) =>
 {
     var tenant = db.CurrentTenantId!;
     var reservations = await db.Reservations
+        .Include(r => r.Customer)
+        .Include(r => r.Vendor)
         .Include(r => r.Items)
+        .ThenInclude(i => i.Product)
         .Where(r => r.TenantId == tenant)
         .OrderByDescending(r => r.CreatedAt)
         .ToListAsync();
@@ -527,7 +637,10 @@ app.MapGet("/api/reservations/{reservationId:guid}", async (AppDbContext db, Gui
 {
     var tenant = db.CurrentTenantId!;
     var reservation = await db.Reservations
+        .Include(r => r.Customer)
+        .Include(r => r.Vendor)
         .Include(r => r.Items)
+        .ThenInclude(i => i.Product)
         .FirstOrDefaultAsync(r => r.Id == reservationId && r.TenantId == tenant);
 
     return reservation is null ? Results.NotFound() : Results.Ok(reservation);
@@ -538,7 +651,10 @@ app.MapGet("/api/reservations/customer/{customerId:guid}", async (AppDbContext d
 {
     var tenant = db.CurrentTenantId!;
     var reservations = await db.Reservations
+        .Include(r => r.Customer)
+        .Include(r => r.Vendor)
         .Include(r => r.Items)
+        .ThenInclude(i => i.Product)
         .Where(r => r.TenantId == tenant && r.CustomerId == customerId)
         .OrderByDescending(r => r.CreatedAt)
         .ToListAsync();
@@ -552,7 +668,10 @@ app.MapGet("/api/vendors/{vendorId:guid}/reservations",
     {
         var tenantId = db.CurrentTenantId!;
         var q = db.Reservations
+            .Include(r => r.Customer)
+            .Include(r => r.Vendor)
             .Include(r => r.Items)
+            .ThenInclude(i => i.Product)
             .Where(r => r.TenantId == tenantId && r.VendorId == vendorId);
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<ReservationStatus>(status, true, out var st))
@@ -614,6 +733,7 @@ app.MapPatch("/api/reservations/{reservationId:guid}/status",
                 {
                     var prod = ps.First(p => p.Id == li.ProductId);
                     prod.ReservedQuantity -= li.Quantity;
+                    if (prod.ReservedQuantity < 0) prod.ReservedQuantity = 0;
                 }
                 reservation.Status = newStatus;
                 if (newStatus == ReservationStatus.Rejected) reservation.RejectedAt = DateTimeOffset.UtcNow;
@@ -626,7 +746,14 @@ app.MapPatch("/api/reservations/{reservationId:guid}/status",
         }
 
         await db.SaveChangesAsync();
-        return Results.Ok(reservation);
+        var hydratedReservation = await db.Reservations
+            .Include(r => r.Customer)
+            .Include(r => r.Vendor)
+            .Include(r => r.Items)
+            .ThenInclude(i => i.Product)
+            .FirstAsync(r => r.Id == reservationId && r.TenantId == tenant);
+
+        return Results.Ok(hydratedReservation);
     });
 
 app.MapPatch("/api/reservations/{reservationId:guid}/note",
@@ -640,7 +767,14 @@ app.MapPatch("/api/reservations/{reservationId:guid}/note",
 
         reservation.CustomerNotes = dto.Note?.Trim();
         await db.SaveChangesAsync();
-        return Results.Ok(reservation);
+        var hydratedReservation = await db.Reservations
+            .Include(r => r.Customer)
+            .Include(r => r.Vendor)
+            .Include(r => r.Items)
+            .ThenInclude(i => i.Product)
+            .FirstAsync(r => r.Id == reservationId && r.TenantId == tenant);
+
+        return Results.Ok(hydratedReservation);
     });
 
 // =======================================================================
@@ -733,6 +867,7 @@ void SeedDemoCatalog(WebApplication webApp)
 {
     using var scope = webApp.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var vendorAuthService = scope.ServiceProvider.GetRequiredService<VendorAuthService>();
 
     DatabaseStartup.EnsureCreated(db, webApp.Logger);
 
@@ -821,7 +956,8 @@ void SeedDemoCatalog(WebApplication webApp)
                 DisplayName = seed.DisplayName,
                 LegalName = seed.LegalName,
                 ContactPhone = seed.ContactPhone,
-                ContactEmail = seed.ContactEmail,
+                ContactEmail = seed.ContactEmail?.Trim().ToLowerInvariant(),
+                RegistrationCode = vendorAuthService.CreateRegistrationCode(),
                 Description = seed.Description,
                 LocationId = location.Id,
                 Active = true,
@@ -840,6 +976,11 @@ void SeedDemoCatalog(WebApplication webApp)
             vendor.LocationId = location.Id;
             vendor.Active = true;
             vendor.Verified = true;
+            vendor.ContactEmail = vendor.ContactEmail?.Trim().ToLowerInvariant();
+            if (vendor.Verified && string.IsNullOrWhiteSpace(vendor.RegistrationCode))
+            {
+                vendor.RegistrationCode = vendorAuthService.CreateRegistrationCode();
+            }
         }
     }
 
@@ -1086,8 +1227,50 @@ void SeedDemoCatalog(WebApplication webApp)
 }
 
 SeedDemoCatalog(app);
+EnsureVendorAccessSetup(app);
 
 app.Run();
+
+void EnsureVendorAccessSetup(WebApplication webApp)
+{
+    using var scope = webApp.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var vendorAuthService = scope.ServiceProvider.GetRequiredService<VendorAuthService>();
+
+    var vendors = db.Vendors.ToList();
+    var changed = false;
+
+    foreach (var vendor in vendors)
+    {
+        vendor.ContactEmail = vendor.ContactEmail?.Trim().ToLowerInvariant();
+
+        if (vendor.Verified && string.IsNullOrWhiteSpace(vendor.RegistrationCode))
+        {
+            vendor.RegistrationCode = vendorAuthService.CreateRegistrationCode();
+            changed = true;
+        }
+
+        if (!vendor.Verified &&
+            string.IsNullOrWhiteSpace(vendor.AccountEmail) &&
+            !string.IsNullOrWhiteSpace(vendor.RegistrationCode))
+        {
+            vendor.RegistrationCode = null;
+            changed = true;
+        }
+
+        var normalizedEmail = vendor.AccountEmail?.Trim().ToLowerInvariant();
+        if (normalizedEmail != vendor.AccountEmail)
+        {
+            vendor.AccountEmail = normalizedEmail;
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        db.SaveChanges();
+    }
+}
 
 static bool ShouldFallbackToInMemory(string connectionString, out string reason)
 {
@@ -1221,6 +1404,9 @@ public static class ProgramHelpers
         var n = RandomNumberGenerator.GetInt32(0, 1_000_000);
         return n.ToString("D6");
     }
+
+    public static string GenerateRegistrationCode() =>
+        Convert.ToHexString(RandomNumberGenerator.GetBytes(6));
 
     public static string GenerateReservationNumber(string tenantId)
     {

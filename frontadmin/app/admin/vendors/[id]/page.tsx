@@ -4,6 +4,7 @@ import { MetricCard } from "@/components/frontadmin/ui/metric-card";
 import { PageHeader } from "@/components/frontadmin/ui/page-header";
 import { Panel } from "@/components/frontadmin/ui/panel";
 import { StatusBadge } from "@/components/frontadmin/ui/status-badge";
+import { approveVendorAction } from "@/lib/admin-actions";
 import { formatDateTime, formatMoney } from "@/lib/admin-ui";
 import {
   getVendor,
@@ -48,6 +49,13 @@ export default async function VendorDetailPage({
         description={vendor.description || "No vendor description has been stored yet."}
         actions={
           <>
+            {!vendor.verified ? (
+              <form action={approveVendorAction}>
+                <input type="hidden" name="vendorId" value={vendor.id} />
+                <input type="hidden" name="returnTo" value={`/admin/vendors/${vendor.id}`} />
+                <button className={actionLinkClass}>Approve vendor</button>
+              </form>
+            ) : null}
             <Link href="/admin/products/new" className={actionLinkClass}>
               Add product
             </Link>
@@ -114,10 +122,41 @@ export default async function VendorDetailPage({
               <dt className="text-slate-500">Created</dt>
               <dd className="mt-1 text-white">{formatDateTime(vendor.createdAt)}</dd>
             </div>
+            <div>
+              <dt className="text-slate-500">Portal access code</dt>
+              {vendor.registrationCode ? (
+                <>
+                  <dd className="mt-1 font-mono text-white">{vendor.registrationCode}</dd>
+                  <dd className="mt-1 text-slate-400">
+                    Share this code with the vendor so they can activate their frontvendor account.
+                  </dd>
+                </>
+              ) : (
+                <dd className="mt-1 text-slate-400">
+                  The registration code is generated only after admin approval.
+                </dd>
+              )}
+            </div>
+            <div>
+              <dt className="text-slate-500">Portal account</dt>
+              <dd className="mt-1 text-white">
+                {vendor.hasAccount ? vendor.accountEmail || "Account active" : "Not registered yet"}
+              </dd>
+              <dd className="mt-1 text-slate-400">
+                {vendor.accountRegisteredAt
+                  ? `Registered ${formatDateTime(vendor.accountRegisteredAt)}`
+                  : "The vendor has not completed account setup yet."}
+              </dd>
+              <dd className="mt-1 text-slate-400">
+                {vendor.lastLoginAt
+                  ? `Last login ${formatDateTime(vendor.lastLoginAt)}`
+                  : "No vendor login recorded yet."}
+              </dd>
+            </div>
           </dl>
 
           <div className="mt-6 rounded-[1.4rem] border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
-            Vendor verification is now supported from the admin vendors listing. Vendor profile edit,
+            Vendor approval now generates the portal registration code. Vendor profile edit,
             activate/suspend, and delete endpoints are still backend gaps and remain in the API
             proposal doc.
           </div>

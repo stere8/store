@@ -78,6 +78,20 @@ export default function CartReservation({ cart }: { cart: Cart }) {
     [cart.cartItems]
   );
 
+  const vendorNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          cart.cartItems
+            .map((item) =>
+              typeof item.store === "string" ? "" : item.store?.name || ""
+            )
+            .filter(Boolean)
+        )
+      ),
+    [cart.cartItems]
+  );
+
   const canReserve = cart.cartItems.length > 0 && vendorIds.length === 1;
 
   const submitReservation = useCallback(
@@ -324,6 +338,7 @@ export default function CartReservation({ cart }: { cart: Cart }) {
             {reservation && (
               <div className="mt-4 rounded border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 flex flex-col gap-2">
                 <strong>Reservation confirmed</strong>
+                {vendorNames[0] ? <span>Vendor: {vendorNames[0]}</span> : null}
                 <span>Number: {reservation.reservationNumber}</span>
                 <span>Pickup code: {reservation.pickupCode}</span>
                 <span>Status: {reservation.status}</span>
