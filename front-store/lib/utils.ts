@@ -1,4 +1,4 @@
-import { TypeReviewModel } from "@/types/models";
+import { TypeProductModel, TypeReviewModel } from "@/types/models";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -29,6 +29,10 @@ export const discountPrice = (price: number, discount: number): number => {
   price_final = (price * (100 - discount)) / 100;
   return parseFloat(price_final.toFixed(2));
 };
+
+export const getProductVendorName = (
+  product?: Pick<TypeProductModel, "store"> | null
+): string => product?.store?.[0]?.name?.trim() || "";
 
 // export async function getMessages(locale: string) {
 //   return await import(`../public/locales/messages/${locale}.json`);

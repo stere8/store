@@ -10,6 +10,7 @@ type ApiCategory = {
 type ApiProduct = {
   id: string;
   vendorId?: string;
+  vendorName?: string | null;
   name: string;
   description?: string;
   price: number;
@@ -126,8 +127,10 @@ export const createCategoryLookup = (items: ApiCategory[]) =>
 const buildStore = (product: ApiProduct) =>
   ({
     _id: product.vendorId ?? "",
-    name: "Storefront Vendor",
-    description: "Mapped from the .NET API product catalog.",
+    name: product.vendorName?.trim() || "",
+    description: product.vendorName?.trim()
+      ? `${product.vendorName.trim()} on E-Store.`
+      : "Seller on E-Store.",
     logo: "",
     products: [],
     orders: [],
@@ -226,6 +229,7 @@ export const toFrontCart = (cart: ApiCart): Cart => {
       category: item.product?.category,
       stockQuantity: item.product?.stockQuantity ?? item.quantity,
       vendorId: item.product?.vendorId,
+      vendorName: item.product?.vendorName,
     };
 
     const variant = buildVariant(fallbackProduct);
@@ -236,7 +240,7 @@ export const toFrontCart = (cart: ApiCart): Cart => {
       store: fallbackProduct.vendorId
         ? {
             _id: fallbackProduct.vendorId,
-            name: "Storefront Vendor",
+            name: fallbackProduct.vendorName?.trim() || "Vendor",
           }
         : undefined,
       variant,

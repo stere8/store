@@ -1,13 +1,15 @@
 import * as React from "react";
 import { Badge } from "@/components/custom/Badge";
 import CurrencyFormat from "@/components/custom/CurrencyFormat";
-import { discountPrice } from "@/lib/utils";
+import { discountPrice, getProductVendorName } from "@/lib/utils";
 import { TypeProductModel } from "@/types/models";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export default function ProductCard({ item }: { item: TypeProductModel }) {
   const router = useRouter();
+  const vendorName = getProductVendorName(item);
+
   return (
     <div
       onClick={() => router.push(`/products/${item.slug}`)}
@@ -29,6 +31,11 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
             </Badge>
           )}
         </div>
+        {vendorName && (
+          <div className="absolute right-4 top-4 max-w-[132px] truncate rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm backdrop-blur">
+            {vendorName}
+          </div>
+        )}
       </div>
       <div className="flex flex-col gap-2 items-center">
         <div>
