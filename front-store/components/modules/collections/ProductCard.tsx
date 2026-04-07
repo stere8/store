@@ -1,13 +1,23 @@
 import CurrencyFormat from "@/components/custom/CurrencyFormat";
+import { getProductVendorName } from "@/lib/utils";
 import { TypeProductModel } from "@/types/models";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
 export default function ProductCard({ item }: { item: TypeProductModel }) {
+  const vendorName = getProductVendorName(item);
+
   return (
-    <Link href={`/products/${item.slug}`} className="flex gap-3 items-center border border-gray-100 p-3 
-     cursor-pointer hover:border-primary-500">
+    <Link
+      href={`/products/${item.slug}`}
+      className="relative flex cursor-pointer items-center gap-3 border border-gray-100 p-3 hover:border-primary-500"
+    >
+      {vendorName && (
+        <div className="absolute right-3 top-3 max-w-[120px] truncate rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white">
+          {vendorName}
+        </div>
+      )}
       <Image
         src={item.images[0].url}
         alt="product"

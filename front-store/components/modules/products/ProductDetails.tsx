@@ -2,7 +2,7 @@
 
 import { TypeProductModel, TypeProductVariantModel } from "@/types/models";
 import { useMemo, useState } from "react";
-import { cn, discountPrice, getRatingNote } from "@/lib/utils";
+import { cn, discountPrice, getProductVendorName, getRatingNote } from "@/lib/utils";
 import { Rating } from "@mui/material";
 import CurrencyFormat from "@/components/custom/CurrencyFormat";
 import { Badge } from "@/components/custom/Badge";
@@ -49,6 +49,7 @@ export default function ProductDetails({
   const selectedVariant =
     activeOptionVariant ?? product.productVariants?.[0] ?? undefined;
   const store = product.store?.[0];
+  const vendorName = getProductVendorName(product);
   const reviews = product.reviews || [];
   const rating = getRatingNote(reviews);
   const inventory = selectedVariant?.inventory ?? product.inventory;
@@ -102,7 +103,7 @@ export default function ProductDetails({
     } else {
       dispatch(
         addToCart({
-          store: store || { _id: product.storeId, name: "Storefront Vendor" },
+          store: store || { _id: product.storeId, name: vendorName || "Vendor" },
           productName: product.name,
           productImage:
             product.images?.[0]?.url || "/assets/products/image.png",
@@ -173,6 +174,14 @@ export default function ProductDetails({
               <span className="text-body-sm-400 text-gray-600 mr-2">Sku:</span>
               <strong className="text-body-sm-600 text-black">
                 {sku || "Not set"}
+              </strong>
+            </li>
+            <li>
+              <span className="text-body-sm-400 text-gray-600 mr-2">
+                Seller:
+              </span>
+              <strong className="text-body-sm-600 text-black">
+                {vendorName || "Not assigned"}
               </strong>
             </li>
             <li>
