@@ -7,6 +7,7 @@ REM Determine the directory where this script is located (without trailing backs
 set "scriptdir=%~dp0"
 if "%scriptdir:~-1%"=="\" set "scriptdir=%scriptdir:~0,-1%"
 set "wt_exe=%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe"
+set "node_dev_env=set ""NEXT_PUBLIC_API_URL=http://localhost:5000"" && set ""NEXT_PUBLIC_ESTORE_API_URL=http://localhost:5000"" && set ""NEXT_PUBLIC_API=http://localhost:5000"" && "
 
 :main
 set "start_clerk_sync=0"
@@ -110,12 +111,12 @@ if "%port_in_use%"=="1" (
 )
 
 if exist "%workdir%\node_modules" (
-  call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "npm run dev"
+  call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "%node_dev_env%npm run dev"
 ) else (
   if exist "%workdir%\package-lock.json" (
-    call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "npm ci && npm run dev"
+    call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "%node_dev_env%npm ci && npm run dev"
   ) else (
-    call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "npm install && npm run dev"
+    call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "%node_dev_env%npm install && npm run dev"
   )
 )
 
