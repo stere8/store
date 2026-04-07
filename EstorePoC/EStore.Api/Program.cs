@@ -3,6 +3,7 @@ using EStore.Api.DTOs;
 using EStore.Api.Endpoints;
 using EStore.Api.Models;
 using EStore.Api.Services;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
@@ -11,9 +12,20 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Services
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var useInMemoryDatabase = string.IsNullOrWhiteSpace(connectionString);
+string? databaseFallbackReason = null;
+
+if (!useInMemoryDatabase &&
+    builder.Environment.IsDevelopment() &&
+    ShouldFallbackToInMemory(connectionString!, out var fallbackReason))
+{
+    useInMemoryDatabase = true;
+    databaseFallbackReason = fallbackReason;
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (!string.IsNullOrWhiteSpace(connectionString))
+    if (!useInMemoryDatabase && !string.IsNullOrWhiteSpace(connectionString))
     {
         options.UseSqlServer(connectionString);
         return;
@@ -40,6 +52,11 @@ var app = builder.Build();
 app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
+
+if (!string.IsNullOrWhiteSpace(databaseFallbackReason))
+{
+    app.Logger.LogWarning("{Reason}", databaseFallbackReason);
+}
 
 // Tenant extractor (header "X-Tenant-Id" or query "tenantId"; default Kigali City Mall)
 app.Use(async (ctx, next) =>
@@ -1024,6 +1041,99 @@ void SeedDemoCatalog(WebApplication webApp)
 SeedDemoCatalog(app);
 
 app.Run();
+
+static bool ShouldFallbackToInMemory(string connectionString, out string reason)
+{
+    reason = string.Empty;
+
+    if (!IsLocalDbConnectionString(connectionString))
+    {
+        return false;
+    }
+
+    try
+    {
+        using var connection = new SqlConnection(connectionString);
+        connection.Open();
+        return false;
+    }
+    catch (SqlException openError)
+    {
+        if (TryCheckDatabaseExists(connectionString, out var databaseName, out var exists, out var probeError))
+        {
+            if (!exists)
+            {
+                return false;
+            }
+
+            reason =
+                $"Falling back to the in-memory database because LocalDB database '{databaseName}' exists but cannot be opened by the current login. {openError.Message}";
+            return true;
+        }
+
+        reason =
+            $"Falling back to the in-memory database because the configured LocalDB connection could not be verified. {probeError ?? openError.Message}";
+        return true;
+    }
+    catch (Exception error)
+    {
+        reason =
+            $"Falling back to the in-memory database because the configured LocalDB connection failed. {error.Message}";
+        return true;
+    }
+}
+
+static bool IsLocalDbConnectionString(string connectionString)
+{
+    try
+    {
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        return builder.DataSource.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
+    }
+    catch
+    {
+        return connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
+    }
+}
+
+static bool TryCheckDatabaseExists(
+    string connectionString,
+    out string databaseName,
+    out bool exists,
+    out string? error)
+{
+    exists = false;
+    error = null;
+
+    try
+    {
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        databaseName = builder.InitialCatalog;
+
+        if (string.IsNullOrWhiteSpace(databaseName))
+        {
+            return true;
+        }
+
+        builder.InitialCatalog = "master";
+
+        using var connection = new SqlConnection(builder.ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sys.databases WHERE name = @databaseName";
+        command.Parameters.AddWithValue("@databaseName", databaseName);
+
+        exists = Convert.ToInt32(command.ExecuteScalar()) > 0;
+        return true;
+    }
+    catch (Exception ex)
+    {
+        databaseName = string.Empty;
+        error = ex.Message;
+        return false;
+    }
+}
 
 // =======================================================================
 // DTOs
