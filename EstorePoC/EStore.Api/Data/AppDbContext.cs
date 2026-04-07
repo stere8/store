@@ -14,6 +14,7 @@ namespace EStore.Api.Data
         public DbSet<Vendor> Vendors => Set<Vendor>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Customer> Customers => Set<Customer>();
+        public DbSet<CustomerIdentityIgnore> CustomerIdentityIgnores => Set<CustomerIdentityIgnore>();
         public DbSet<Product> Products => Set<Product>();
         public DbSet<Reservation> Reservations => Set<Reservation>();
         public DbSet<ReservationItem> ReservationItems => Set<ReservationItem>();
@@ -67,6 +68,7 @@ namespace EStore.Api.Data
                 e.Property(x => x.FullName).HasMaxLength(160).IsRequired();
                 e.Property(x => x.PhoneNumber).HasMaxLength(32).IsRequired();
                 e.Property(x => x.Email).HasMaxLength(160);
+                e.Property(x => x.ArchivedReason).HasMaxLength(240);
 
                 e.HasOne(x => x.Tenant).WithMany()
                     .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
@@ -74,6 +76,20 @@ namespace EStore.Api.Data
                 e.HasIndex(x => new { x.TenantId, x.PhoneNumber }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.Username }).IsUnique();
+            });
+
+            m.Entity<CustomerIdentityIgnore>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.IssueType).HasMaxLength(32).IsRequired();
+                e.Property(x => x.SubjectKey).HasMaxLength(120).IsRequired();
+                e.Property(x => x.Fingerprint).HasMaxLength(128).IsRequired();
+
+                e.HasOne(x => x.Tenant).WithMany()
+                    .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => new { x.TenantId, x.IssueType, x.SubjectKey }).IsUnique();
             });
 
             // Category
@@ -179,6 +195,7 @@ namespace EStore.Api.Data
             m.Entity<Vendor>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Category>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Customer>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<CustomerIdentityIgnore>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Product>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Reservation>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<ReservationItem>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);

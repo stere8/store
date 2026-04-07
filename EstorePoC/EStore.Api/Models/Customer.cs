@@ -10,6 +10,9 @@ public class Customer
     public string PhoneNumber { get; set; } = default!;
     public string? Email { get; set; }
     public string? PreferredLanguage { get; set; }   // "en","rw","fr","sw"
+    public bool IsArchived { get; set; }
+    public DateTimeOffset? ArchivedAt { get; set; }
+    public string? ArchivedReason { get; set; }
 
     public Tenant? Tenant { get; set; }
     public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();

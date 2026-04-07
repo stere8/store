@@ -64,6 +64,23 @@ export type EStoreCustomer = {
   phoneNumber: string;
   email?: string | null;
   preferredLanguage?: string | null;
+  isArchived?: boolean;
+  archivedAt?: string | null;
+  archivedReason?: string | null;
+};
+
+export type CustomerReconciliationIssueType =
+  | "clerk-only"
+  | "db-only"
+  | "mismatched";
+
+export type EStoreCustomerIdentityIgnore = {
+  id: string;
+  tenantId: string;
+  issueType: CustomerReconciliationIssueType;
+  subjectKey: string;
+  fingerprint: string;
+  createdAt: string;
 };
 
 export type EStoreReview = {
@@ -355,14 +372,78 @@ export async function deleteProduct(id: string) {
   });
 }
 
-export async function listCustomers(search?: string) {
+export async function upsertCustomer(payload: {
+  username: string;
+  fullName: string;
+  phoneNumber: string;
+  email?: string | null;
+  preferredLanguage?: string | null;
+}) {
+  return estoreRequest<EStoreCustomer>("/api/customers", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listCustomers(
+  search?: string,
+  options?: { includeArchived?: boolean }
+) {
   if (search && search.trim().length > 0) {
     return estoreRequest<EStoreCustomer[]>("/api/customers/search", {
-      query: { q: search.trim() },
+      query: {
+        q: search.trim(),
+        includeArchived: options?.includeArchived ? true : undefined,
+      },
     });
   }
 
-  return estoreRequest<EStoreCustomer[]>("/api/customers");
+  return estoreRequest<EStoreCustomer[]>("/api/customers", {
+    query: {
+      includeArchived: options?.includeArchived ? true : undefined,
+    },
+  });
+}
+
+export async function archiveCustomer(id: string, reason?: string) {
+  return estoreRequest<EStoreCustomer>(`/api/customers/${id}/archive`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      reason: reason || "Archived from admin reconciliation.",
+    }),
+  });
+}
+
+export async function listCustomerIdentityIgnores() {
+  return estoreRequest<EStoreCustomerIdentityIgnore[]>(
+    "/api/customers/reconciliation/ignores"
+  );
+}
+
+export async function upsertCustomerIdentityIgnore(payload: {
+  issueType: CustomerReconciliationIssueType;
+  subjectKey: string;
+  fingerprint: string;
+}) {
+  return estoreRequest<EStoreCustomerIdentityIgnore>(
+    "/api/customers/reconciliation/ignores",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteCustomerIdentityIgnore(
+  issueType: CustomerReconciliationIssueType,
+  subjectKey: string
+) {
+  return estoreRequest<void>(
+    `/api/customers/reconciliation/ignores/${issueType}/${encodeURIComponent(subjectKey)}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
 
 export async function listReservations() {
