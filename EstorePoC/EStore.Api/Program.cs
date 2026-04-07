@@ -406,18 +406,6 @@ app.MapDelete("/api/carts/{cartId:guid}/items/{productId:guid}", async (AppDbCon
 // RESERVATIONS
 // =======================================================================
 
-// List all reservations for the current tenant
-app.MapGet("/api/reservations", async (AppDbContext db) =>
-{
-    var tenant = db.CurrentTenantId!;
-    var reservations = await db.Reservations
-        .Where(r => r.TenantId == tenant)
-        .OrderByDescending(r => r.CreatedAt)
-        .ToListAsync();
-
-    return Results.Ok(reservations);
-});
-
 // Create a reservation
 app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dto) =>
 {

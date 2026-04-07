@@ -7,7 +7,7 @@ REM Determine the directory where this script is located (without trailing backs
 set "scriptdir=%~dp0"
 if "%scriptdir:~-1%"=="\" set "scriptdir=%scriptdir:~0,-1%"
 set "wt_exe=%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe"
-set "node_dev_env=set ""NEXT_PUBLIC_API_URL=http://localhost:5000"" && set ""NEXT_PUBLIC_ESTORE_API_URL=http://localhost:5000"" && set ""NEXT_PUBLIC_API=http://localhost:5000"" && "
+set "node_dev_env=set NEXT_PUBLIC_API_URL=http://localhost:5000 && set NEXT_PUBLIC_ESTORE_API_URL=http://localhost:5000 && set NEXT_PUBLIC_API=http://localhost:5000 && "
 
 :main
 set "start_clerk_sync=0"
@@ -90,7 +90,8 @@ if "%port_in_use%"=="1" (
   exit /b 0
 )
 
-call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "dotnet run --no-launch-profile -- --urls http://localhost:5000"
+set "launch_command=dotnet run --no-launch-profile -- --urls http://localhost:5000"
+call :start_terminal "%window_title%" "%workdir%" "%shell_title%"
 exit /b 0
 
 :start_node
@@ -111,12 +112,15 @@ if "%port_in_use%"=="1" (
 )
 
 if exist "%workdir%\node_modules" (
-  call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "%node_dev_env%npm run dev"
+  set "launch_command=%node_dev_env%npm run dev"
+  call :start_terminal "%window_title%" "%workdir%" "%shell_title%"
 ) else (
   if exist "%workdir%\package-lock.json" (
-    call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "%node_dev_env%npm ci && npm run dev"
+    set "launch_command=%node_dev_env%npm ci && npm run dev"
+    call :start_terminal "%window_title%" "%workdir%" "%shell_title%"
   ) else (
-    call :start_terminal "%window_title%" "%workdir%" "%shell_title%" "%node_dev_env%npm install && npm run dev"
+    set "launch_command=%node_dev_env%npm install && npm run dev"
+    call :start_terminal "%window_title%" "%workdir%" "%shell_title%"
   )
 )
 
@@ -141,7 +145,6 @@ exit /b 0
 set "window_title=%~1"
 set "workdir=%~2"
 set "shell_title=%~3"
-set "launch_command=%~4"
 
 if exist "%wt_exe%" (
   "%wt_exe%" new-tab --title "%shell_title%" --suppressApplicationTitle -d "%workdir%" cmd /k "title %shell_title% && %launch_command%"
