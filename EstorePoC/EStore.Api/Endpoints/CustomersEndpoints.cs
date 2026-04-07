@@ -10,6 +10,10 @@ public static class CustomersEndpoints
     {
         group.MapPost("/", UpsertCustomer);
         group.MapGet("/", ListCustomers);
+        group.MapPatch("/{id:guid}/archive", ArchiveCustomer);
+        group.MapGet("/reconciliation/ignores", ListIgnoredReconciliationItems);
+        group.MapPost("/reconciliation/ignores", UpsertIgnoredReconciliationItem);
+        group.MapDelete("/reconciliation/ignores/{issueType}/{subjectKey}", DeleteIgnoredReconciliationItem);
         group.MapGet("/{id:guid}", GetCustomer);
         group.MapGet("/search", SearchCustomers);
 
@@ -44,7 +48,8 @@ public static class CustomersEndpoints
                 FullName = fullName,
                 PhoneNumber = phoneNumber,
                 Email = email,
-                PreferredLanguage = dto.PreferredLanguage
+                PreferredLanguage = dto.PreferredLanguage,
+                IsArchived = false
             };
 
             db.Customers.Add(customer);
@@ -61,6 +66,9 @@ public static class CustomersEndpoints
                 existing.PhoneNumber = phoneNumber;
             existing.Email = email;
             existing.PreferredLanguage = dto.PreferredLanguage;
+            existing.IsArchived = false;
+            existing.ArchivedAt = null;
+            existing.ArchivedReason = null;
 
             await db.SaveChangesAsync();
 
@@ -83,22 +91,133 @@ public static class CustomersEndpoints
     // -------------------------------------------------------------
     // 3️⃣ List All Customers
     // -------------------------------------------------------------
-    private static async Task<IResult> ListCustomers(AppDbContext db)
+    private static async Task<IResult> ListCustomers(AppDbContext db, bool includeArchived = false)
     {
         var tenant = db.CurrentTenantId!;
 
-        var list = await db.Customers
-            .Where(c => c.TenantId == tenant)
+        var query = db.Customers
+            .Where(c => c.TenantId == tenant);
+
+        if (!includeArchived)
+            query = query.Where(c => !c.IsArchived);
+
+        var list = await query
             .OrderBy(c => c.FullName)
             .ToListAsync();
 
         return Results.Ok(list);
     }
 
+    private static async Task<IResult> ArchiveCustomer(AppDbContext db, Guid id, ArchiveCustomerDto? dto)
+    {
+        var tenant = db.CurrentTenantId!;
+        var customer = await db.Customers
+            .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenant);
+
+        if (customer is null)
+            return Results.NotFound(new { error = "Customer not found." });
+
+        customer.IsArchived = true;
+        customer.ArchivedAt = DateTimeOffset.UtcNow;
+        customer.ArchivedReason = string.IsNullOrWhiteSpace(dto?.Reason)
+            ? "Archived from admin reconciliation."
+            : dto!.Reason!.Trim();
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(customer);
+    }
+
+    private static async Task<IResult> ListIgnoredReconciliationItems(AppDbContext db)
+    {
+        var tenant = db.CurrentTenantId!;
+
+        var items = await db.CustomerIdentityIgnores
+            .Where(x => x.TenantId == tenant)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return Results.Ok(items);
+    }
+
+    private static async Task<IResult> UpsertIgnoredReconciliationItem(
+        AppDbContext db,
+        CustomerIdentityIgnoreDto dto)
+    {
+        var tenant = db.CurrentTenantId!;
+        var issueType = NormalizeIssueType(dto.IssueType);
+        var subjectKey = dto.SubjectKey.Trim();
+        var fingerprint = dto.Fingerprint.Trim();
+
+        if (issueType is null)
+            return Results.BadRequest(new { error = "IssueType must be clerk-only, db-only, or mismatched." });
+
+        if (string.IsNullOrWhiteSpace(subjectKey) || string.IsNullOrWhiteSpace(fingerprint))
+            return Results.BadRequest(new { error = "SubjectKey and Fingerprint are required." });
+
+        var existing = await db.CustomerIdentityIgnores
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == tenant &&
+                x.IssueType == issueType &&
+                x.SubjectKey == subjectKey);
+
+        if (existing is null)
+        {
+            existing = new CustomerIdentityIgnore
+            {
+                TenantId = tenant,
+                IssueType = issueType,
+                SubjectKey = subjectKey,
+                Fingerprint = fingerprint,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            db.CustomerIdentityIgnores.Add(existing);
+        }
+        else
+        {
+            existing.Fingerprint = fingerprint;
+            existing.CreatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(existing);
+    }
+
+    private static async Task<IResult> DeleteIgnoredReconciliationItem(
+        AppDbContext db,
+        string issueType,
+        string subjectKey)
+    {
+        var tenant = db.CurrentTenantId!;
+        var normalizedIssueType = NormalizeIssueType(issueType);
+        var normalizedSubjectKey = Uri.UnescapeDataString(subjectKey).Trim();
+
+        if (normalizedIssueType is null || string.IsNullOrWhiteSpace(normalizedSubjectKey))
+            return Results.BadRequest(new { error = "IssueType and subjectKey are required." });
+
+        var existing = await db.CustomerIdentityIgnores
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == tenant &&
+                x.IssueType == normalizedIssueType &&
+                x.SubjectKey == normalizedSubjectKey);
+
+        if (existing is null)
+            return Results.NoContent();
+
+        db.CustomerIdentityIgnores.Remove(existing);
+        await db.SaveChangesAsync();
+
+        return Results.NoContent();
+    }
+
     // -------------------------------------------------------------
     // 4️⃣ Search Customers (by name/phone/email)
     // -------------------------------------------------------------
-    private static async Task<IResult> SearchCustomers(AppDbContext db, string q)
+    private static async Task<IResult> SearchCustomers(
+        AppDbContext db,
+        string q,
+        bool includeArchived = false)
     {
         var tenant = db.CurrentTenantId!;
 
@@ -107,15 +226,30 @@ public static class CustomersEndpoints
 
         q = q.Trim().ToLower();
 
-        var list = await db.Customers
+        var query = db.Customers
             .Where(c => c.TenantId == tenant &&
                         (c.FullName.ToLower().Contains(q) ||
                          c.PhoneNumber.Contains(q) ||
-                         (c.Email != null && c.Email.ToLower().Contains(q))))
+                         c.Username.ToLower().Contains(q) ||
+                         (c.Email != null && c.Email.ToLower().Contains(q))));
+
+        if (!includeArchived)
+            query = query.Where(c => !c.IsArchived);
+
+        var list = await query
             .OrderBy(c => c.FullName)
             .ToListAsync();
 
         return Results.Ok(list);
+    }
+
+    private static string? NormalizeIssueType(string issueType)
+    {
+        var normalized = issueType?.Trim().ToLowerInvariant();
+
+        return normalized is "clerk-only" or "db-only" or "mismatched"
+            ? normalized
+            : null;
     }
 }
 
@@ -129,3 +263,10 @@ public record CustomerDto(
     string PhoneNumber,
     string? Email,
     string? PreferredLanguage);
+
+public record ArchiveCustomerDto(string? Reason);
+
+public record CustomerIdentityIgnoreDto(
+    string IssueType,
+    string SubjectKey,
+    string Fingerprint);

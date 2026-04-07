@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/frontadmin/ui/page-header";
 import { Panel } from "@/components/frontadmin/ui/panel";
 import { formatDateTime } from "@/lib/admin-ui";
@@ -23,6 +24,14 @@ export default async function CustomersPage({
         eyebrow="Admin / Customers"
         title="Customer records"
         description="Customer listing and search are supported today through EStore.Api. Customer delete, merge, and segmentation are still backend gaps."
+        actions={
+          <Link
+            href="/admin/reconciliation"
+            className="rounded-full border border-cyan-300/40 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300 hover:text-slate-950"
+          >
+            Open reconciliation
+          </Link>
+        }
       />
 
       <Panel>

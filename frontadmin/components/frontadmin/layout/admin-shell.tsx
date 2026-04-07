@@ -14,6 +14,7 @@ const sections: NavSection[] = [
       { href: "/admin/categories", label: "Categories" },
       { href: "/admin/reservations", label: "Reservations" },
       { href: "/admin/customers", label: "Customers" },
+      { href: "/admin/reconciliation", label: "Identity Reconciliation" },
       { href: "/admin/locations", label: "Locations" },
     ],
   },

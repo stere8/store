@@ -4,18 +4,23 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   approveVendor,
+  archiveCustomer,
   changeReservationStatus,
   createCategory,
   createLocation,
   createProduct,
   createVendor,
+  deleteCustomerIdentityIgnore,
   deleteCategory,
   deleteProduct,
+  upsertCustomer,
+  upsertCustomerIdentityIgnore,
   updateCategory,
   updateProduct,
   updateReservationNote,
 } from "@/lib/estore-api";
 import { buildFlashSearch } from "@/lib/admin-ui";
+import { deleteClerkUser } from "@/lib/clerk-directory";
 
 const asString = (value: FormDataEntryValue | null) =>
   typeof value === "string" ? value.trim() : "";
@@ -198,6 +203,106 @@ export async function deleteProductAction(formData: FormData) {
     goWithResult(returnTo, "success", "Product archived.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to archive product.";
+    goWithResult(returnTo, "error", message);
+  }
+}
+
+export async function syncCustomerFromClerkAction(formData: FormData) {
+  const returnTo = asString(formData.get("returnTo")) || "/admin/reconciliation";
+
+  try {
+    await upsertCustomer({
+      username: asString(formData.get("username")),
+      fullName: asString(formData.get("fullName")),
+      phoneNumber: asString(formData.get("phoneNumber")),
+      email: asString(formData.get("email")) || null,
+      preferredLanguage: asString(formData.get("preferredLanguage")) || "en",
+    });
+
+    revalidatePath("/admin/customers");
+    revalidatePath("/admin/reconciliation");
+    goWithResult(returnTo, "success", "Customer synced from Clerk into the local database.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to sync customer from Clerk.";
+    goWithResult(returnTo, "error", message);
+  }
+}
+
+export async function deleteClerkUserAction(formData: FormData) {
+  const clerkUserId = asString(formData.get("clerkUserId"));
+  const returnTo = asString(formData.get("returnTo")) || "/admin/reconciliation";
+
+  if (!clerkUserId) {
+    goWithResult(returnTo, "error", "Clerk user id is required.");
+  }
+
+  try {
+    await deleteClerkUser(clerkUserId);
+    revalidatePath("/admin/reconciliation");
+    goWithResult(returnTo, "success", "Clerk user deleted.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete Clerk user.";
+    goWithResult(returnTo, "error", message);
+  }
+}
+
+export async function archiveCustomerAction(formData: FormData) {
+  const customerId = asString(formData.get("customerId"));
+  const returnTo = asString(formData.get("returnTo")) || "/admin/reconciliation";
+
+  if (!customerId) {
+    goWithResult(returnTo, "error", "Customer id is required.");
+  }
+
+  try {
+    await archiveCustomer(
+      customerId,
+      asString(formData.get("reason")) || "Archived from admin reconciliation."
+    );
+
+    revalidatePath("/admin/customers");
+    revalidatePath("/admin/reconciliation");
+    goWithResult(returnTo, "success", "Local-only customer archived.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to archive customer.";
+    goWithResult(returnTo, "error", message);
+  }
+}
+
+export async function ignoreCustomerReconciliationIssueAction(formData: FormData) {
+  const returnTo = asString(formData.get("returnTo")) || "/admin/reconciliation";
+
+  try {
+    await upsertCustomerIdentityIgnore({
+      issueType: asString(formData.get("issueType")) as
+        | "clerk-only"
+        | "db-only"
+        | "mismatched",
+      subjectKey: asString(formData.get("subjectKey")),
+      fingerprint: asString(formData.get("fingerprint")),
+    });
+
+    revalidatePath("/admin/reconciliation");
+    goWithResult(returnTo, "success", "Issue ignored for the current reconciliation fingerprint.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to ignore issue.";
+    goWithResult(returnTo, "error", message);
+  }
+}
+
+export async function unignoreCustomerReconciliationIssueAction(formData: FormData) {
+  const returnTo = asString(formData.get("returnTo")) || "/admin/reconciliation";
+
+  try {
+    await deleteCustomerIdentityIgnore(
+      asString(formData.get("issueType")) as "clerk-only" | "db-only" | "mismatched",
+      asString(formData.get("subjectKey"))
+    );
+
+    revalidatePath("/admin/reconciliation");
+    goWithResult(returnTo, "success", "Ignored issue restored to the active reconciliation list.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to restore ignored issue.";
     goWithResult(returnTo, "error", message);
   }
 }
