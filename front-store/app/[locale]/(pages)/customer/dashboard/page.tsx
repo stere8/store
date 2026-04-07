@@ -9,17 +9,16 @@ export const revalidate = 3600;
 export default function page() {
   return (
     <>
-      <Breadcrumbs page="dashboard" />
+      <Breadcrumbs page="My account" />
       <Dashboard />
     </>
   );
 }
 
 export const metadata: Metadata = {
-  title: "Dashboard - E-City - Ecommerce",
-  description:
-    "A Ecommerce app. We are selling everything, shoes for mens womens and kids",
+  title: "My Account - E-City - Ecommerce",
+  description: "Customer profile, reservation activity, and pickup history.",
   icons: {
-    icon: "/assets/images/logo_dark.svg",
+    icon: "/assets/images/logo.png",
   },
 };
