@@ -10,13 +10,13 @@ import { PiSignOut } from "react-icons/pi";
 export default function LeftSidebar() {
   const routes = [
     {
-      name: "dashboard",
+      name: "profile",
       link: "/customer/dashboard",
       icon: <Grid size={20} />,
     },
 
     {
-      name: "orders",
+      name: "reservations",
       link: "/customer/orders",
       icon: <Store size={20} />,
     },
