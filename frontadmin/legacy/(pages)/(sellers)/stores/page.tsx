@@ -19,7 +19,7 @@ export default async function page() {
       <Container>
         <div className="flex flex-col justify-center items-center gap-12 p-40">
           <Image
-            src="/assets/images/logo_dark.svg"
+            src="/assets/images/logo.png"
             width={200}
             height={200}
             alt="logo"
@@ -59,6 +59,6 @@ export const metadata: Metadata = {
   description:
     "A Ecommerce app. We are selling everything, shoes for mens womens and kids",
   icons: {
-    icon: "/assets/images/logo_dark.svg",
+    icon: "/assets/images/logo.png",
   },
 };

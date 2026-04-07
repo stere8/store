@@ -11,7 +11,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
         layout: {
           socialButtonsVariant: "blockButton",
           socialButtonsPlacement: "bottom",
-          logoImageUrl: "/assets/images/logo_dark.svg",
+          logoImageUrl: "/assets/images/logo.png",
         },
         // baseTheme: [ dark],
       }}
