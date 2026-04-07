@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Frontadmin",
+  title: "Admin-E-store",
   description: "Admin frontend aligned to EStore.Api.",
   icons: {
     icon: "/assets/images/logo_dark.svg",

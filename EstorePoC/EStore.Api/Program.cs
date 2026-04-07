@@ -166,6 +166,20 @@ app.MapGet("/api/products", async (AppDbContext db) =>
     var list = await db.Products
         .Where(p => p.TenantId == tenant && p.Active)
         .OrderBy(p => p.Name)
+        .Select(p => new ProductListItemDto(
+            p.Id,
+            p.VendorId,
+            p.Vendor != null ? p.Vendor.DisplayName : null,
+            p.Name,
+            p.Description,
+            p.Price,
+            p.ImageUrl,
+            p.CategoryId,
+            p.Category != null ? p.Category.Name : null,
+            p.StockQuantity,
+            p.ReservedQuantity,
+            p.Active,
+            p.CreatedAt))
         .ToListAsync();
     return Results.Ok(list);
 });
@@ -1070,6 +1084,20 @@ public record EnsureCartDto(Guid CustomerId);
 public record AddCartItemDto(Guid ProductId, int Quantity);
 public record CreateReviewDto(int Rating, string? Title, string? Comment, Guid CustomerId);
 public record UpdateReservationNoteDto(string? Note);
+public record ProductListItemDto(
+    Guid Id,
+    Guid VendorId,
+    string? VendorName,
+    string Name,
+    string? Description,
+    decimal Price,
+    string? ImageUrl,
+    Guid? CategoryId,
+    string? Category,
+    int StockQuantity,
+    int ReservedQuantity,
+    bool Active,
+    DateTimeOffset CreatedAt);
 
 // =======================================================================
 // HELPERS

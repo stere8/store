@@ -1,6 +1,7 @@
 import { TypeProductModel } from "@/types/models";
 import { Badge } from "@/components/custom/Badge";
 import CurrencyFormat from "@/components/custom/CurrencyFormat";
+import { getProductVendorName } from "@/lib/utils";
 import { Rating } from "@mui/material";
 import { Eye, Heart, ShoppingCart } from "lucide-react";
 import Image from "next/image";
@@ -21,6 +22,7 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
   const imageUrl = item.images[0]?.url || item.imageUrl || "/assets/products/image.png";
   const originalPrice =
     item.discount > 0 ? item.price + (item.price * item.discount) / 100 : null;
+  const vendorName = getProductVendorName(item);
 
   return (
     <Link
@@ -45,6 +47,11 @@ export default function ProductCard({ item }: { item: TypeProductModel }) {
             {item.inventory === "instock" ? "In stock" : "Out of stock"}
           </Badge>
         </div>
+        {vendorName && (
+          <div className="absolute right-0 top-4 max-w-[132px] truncate rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm backdrop-blur">
+            {vendorName}
+          </div>
+        )}
         <div className="absolute top-20 left-7 group-hover:flex gap-2 hidden">
           <div className="outline outline-1 outline-gray-100 hover:bg-primary-500 hover:text-white bg-white p-3 sahdow  rounded-full flex justify-center items-center">
             <Heart size={24} />
