@@ -6,7 +6,8 @@
     "dev": "cross-env NODE_ENV=development && next dev --port 3000",
     "build": "next build",
     "start": "cross-env NODE_ENV=production &&  next start --port 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "reconcile:clerk-customers": "node scripts/reconcile-clerk-users.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^5.7.5",
@@ -67,6 +68,7 @@
     "redux": "^5.0.1",
     "redux-persist": "^6.0.0",
     "sharp": "^0.33.5",
+    "svix": "^1.90.0",
     "swiper": "^11.1.14",
     "tailwind-merge": "^2.5.3",
     "tailwindcss-animate": "^1.0.7",

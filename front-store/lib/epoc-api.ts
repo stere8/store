@@ -1,13 +1,7 @@
 import axios from "axios";
+import { getEStoreApiBaseUrl, getEStoreTenantId } from "./estore-config";
 
-export const getEStoreApiBaseUrl = () =>
-  process.env.NEXT_PUBLIC_ESTORE_API_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API ||
-  "http://localhost:5000";
-
-export const getEStoreTenantId = () =>
-  process.env.NEXT_PUBLIC_ESTORE_TENANT_ID || "kigali-city-mall";
+export { getEStoreApiBaseUrl, getEStoreTenantId } from "./estore-config";
 
 export const apiClient = axios.create({
   baseURL: getEStoreApiBaseUrl(),

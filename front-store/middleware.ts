@@ -11,17 +11,34 @@ import { i18n } from "./i18n-config";
 
 const { locales, defaultLocale } = i18n;
 
-function getLocale(request: NextRequest): string {
-  // get list string of lang
-  const localesString: string[] = [];
-  locales.map((item) => localesString.push(item.lang));
+function isValidLocale(locale: string): boolean {
+  try {
+    return Intl.getCanonicalLocales(locale).length > 0;
+  } catch {
+    return false;
+  }
+}
 
-  // get languages of navigators
+function getLocale(request: NextRequest): string {
+  const localesString = locales
+    .map((item) => item.lang)
+    .filter(isValidLocale);
+
   const negotiatorHeaders: Record<string, string> = {};
   request.headers.forEach((value, key) => (negotiatorHeaders[key] = value));
 
-  // match the navigator language to locales languages
-  const languages = new Negotiator({ headers: negotiatorHeaders }).languages();
+  const languages = new Negotiator({ headers: negotiatorHeaders })
+    .languages()
+    .filter(isValidLocale);
+
+  if (localesString.length === 0 || !isValidLocale(defaultLocale)) {
+    return "en";
+  }
+
+  if (languages.length === 0) {
+    return defaultLocale;
+  }
+
   return match(languages, localesString, defaultLocale);
 }
 
@@ -29,6 +46,12 @@ function getLocale(request: NextRequest): string {
 const isAuthRoute = createRouteMatcher(["/customer/(.*)", "/track-order/(.*)"]);
 
 export default clerkMiddleware(async (auth, request) => {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   // if (process.env.NODE_ENV === "development") return NextResponse.next();
   const { isSignedIn } = await clerkClient.authenticateRequest(request);
 
@@ -42,7 +65,7 @@ export default clerkMiddleware(async (auth, request) => {
   //Rewrite URL for locale
   let response, nextLocale;
 
-  const { basePath, pathname } = request.nextUrl;
+  const { basePath } = request.nextUrl;
 
   // Redirect if there is no locale
   const pathLocale = locales.find(

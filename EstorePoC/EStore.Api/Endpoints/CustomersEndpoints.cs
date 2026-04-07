@@ -14,6 +14,7 @@ public static class CustomersEndpoints
         group.MapGet("/reconciliation/ignores", ListIgnoredReconciliationItems);
         group.MapPost("/reconciliation/ignores", UpsertIgnoredReconciliationItem);
         group.MapDelete("/reconciliation/ignores/{issueType}/{subjectKey}", DeleteIgnoredReconciliationItem);
+        group.MapDelete("/by-username/{username}", DeleteCustomerByUsername);
         group.MapGet("/{id:guid}", GetCustomer);
         group.MapGet("/search", SearchCustomers);
 
@@ -206,6 +207,47 @@ public static class CustomersEndpoints
             return Results.NoContent();
 
         db.CustomerIdentityIgnores.Remove(existing);
+        await db.SaveChangesAsync();
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> DeleteCustomerByUsername(AppDbContext db, string username)
+    {
+        var tenant = db.CurrentTenantId!;
+        username = Uri.UnescapeDataString(username).Trim();
+
+        if (string.IsNullOrWhiteSpace(username))
+            return Results.BadRequest(new { error = "Username is required." });
+
+        var customer = await db.Customers
+            .FirstOrDefaultAsync(c => c.TenantId == tenant && c.Username == username);
+
+        if (customer is null)
+            return Results.NoContent();
+
+        var hasLinkedReservations = await db.Reservations
+            .AnyAsync(r => r.TenantId == tenant && r.CustomerId == customer.Id);
+        var hasLinkedCarts = await db.ShoppingCarts
+            .AnyAsync(c => c.TenantId == tenant && c.CustomerId == customer.Id);
+        var hasLinkedReviews = await db.Reviews
+            .AnyAsync(r => r.TenantId == tenant && r.CustomerId == customer.Id);
+
+        if (!hasLinkedReservations && !hasLinkedCarts && !hasLinkedReviews)
+        {
+            db.Customers.Remove(customer);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        }
+
+        customer.FullName = "Deleted customer";
+        customer.Email = null;
+        customer.PreferredLanguage = null;
+        customer.PhoneNumber = customer.Id.ToString("N");
+        customer.IsArchived = true;
+        customer.ArchivedAt = DateTimeOffset.UtcNow;
+        customer.ArchivedReason = "Archived after Clerk user deletion.";
+
         await db.SaveChangesAsync();
 
         return Results.NoContent();

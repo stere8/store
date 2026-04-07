@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { SignIn, SignUp, useAuth, useUser } from "@clerk/nextjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -37,6 +38,13 @@ export default function CustomerAuthPage({ mode }: CustomerAuthPageProps) {
       `${pathname}?post_auth=1&return_url=${encodeURIComponent(returnPath)}`,
     [pathname, returnPath]
   );
+  const alternateAuthUrl = useMemo(
+    () =>
+      mode === "sign-in"
+        ? buildAuthRedirectUrl("/sign-up", returnPath)
+        : buildAuthRedirectUrl("/sign-in", returnPath),
+    [mode, returnPath]
+  );
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !user || handledRedirectRef.current) {
@@ -70,20 +78,31 @@ export default function CustomerAuthPage({ mode }: CustomerAuthPageProps) {
 
   return (
     <div className="flex justify-center items-center py-20">
-      {mode === "sign-in" ? (
-        <SignIn
-          appearance={{}}
-          forceRedirectUrl={callbackUrl}
-          fallbackRedirectUrl={callbackUrl}
-          signUpUrl={buildAuthRedirectUrl("/sign-up", returnPath)}
-        />
-      ) : (
-        <SignUp
-          forceRedirectUrl={callbackUrl}
-          fallbackRedirectUrl={callbackUrl}
-          signInUrl={buildAuthRedirectUrl("/sign-in", returnPath)}
-        />
-      )}
+      <div className="flex flex-col items-center gap-4">
+        {mode === "sign-in" ? (
+          <SignIn
+            appearance={{}}
+            forceRedirectUrl={callbackUrl}
+            fallbackRedirectUrl={callbackUrl}
+            signUpUrl={buildAuthRedirectUrl("/sign-up", returnPath)}
+          />
+        ) : (
+          <SignUp
+            forceRedirectUrl={callbackUrl}
+            fallbackRedirectUrl={callbackUrl}
+            signInUrl={buildAuthRedirectUrl("/sign-in", returnPath)}
+          />
+        )}
+        <p className="text-sm text-slate-600">
+          {mode === "sign-in" ? "Need an account?" : "Already have an account?"}{" "}
+          <Link
+            href={alternateAuthUrl}
+            className="font-semibold text-primary-500 hover:underline"
+          >
+            {mode === "sign-in" ? "Sign up" : "Sign in"}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
