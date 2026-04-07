@@ -521,6 +521,19 @@ app.MapPost("/api/reservations", async (AppDbContext db, CreateReservationDto dt
     return Results.Created($"/api/reservations/{reservation.Id}", reservation);
 });
 
+// List reservations for current tenant
+app.MapGet("/api/reservations", async (AppDbContext db) =>
+{
+    var tenant = db.CurrentTenantId!;
+    var reservations = await db.Reservations
+        .Include(r => r.Items)
+        .Where(r => r.TenantId == tenant)
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+
+    return Results.Ok(reservations);
+});
+
 // Get a reservation by id
 app.MapGet("/api/reservations/{reservationId:guid}", async (AppDbContext db, Guid reservationId) =>
 {

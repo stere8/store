@@ -149,14 +149,16 @@ export class EStoreApiError extends Error {
   }
 }
 
+const normalizeEnvValue = (value?: string) => value?.trim();
+
 export const getEStoreApiBaseUrl = () =>
-  process.env.NEXT_PUBLIC_ESTORE_API_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API ||
+  normalizeEnvValue(process.env.NEXT_PUBLIC_ESTORE_API_URL) ||
+  normalizeEnvValue(process.env.NEXT_PUBLIC_API_URL) ||
+  normalizeEnvValue(process.env.NEXT_PUBLIC_API) ||
   "http://localhost:5000";
 
 export const getEStoreTenantId = () =>
-  process.env.NEXT_PUBLIC_ESTORE_TENANT_ID || "kigali-city-mall";
+  normalizeEnvValue(process.env.NEXT_PUBLIC_ESTORE_TENANT_ID) || "kigali-city-mall";
 
 const buildUrl = (
   path: string,
@@ -314,15 +316,8 @@ export async function listProducts() {
 }
 
 export async function getProduct(id: string) {
-  try {
-    return await estoreRequest<EStoreProduct>(`/api/products/${id}`);
-  } catch (error) {
-    if (error instanceof EStoreApiError && error.status === 404) {
-      return null;
-    }
-
-    throw error;
-  }
+  const products = await listProducts();
+  return products.find((product) => product.id === id) ?? null;
 }
 
 export async function createProduct(payload: {
@@ -451,7 +446,7 @@ export async function listReservations() {
 }
 
 export async function listVendorReservations(vendorId: string) {
-  return estoreRequest<EStoreReservation[]>(`/api/reservations/vendor/${vendorId}`);
+  return estoreRequest<EStoreReservation[]>(`/api/vendors/${vendorId}/reservations`);
 }
 
 export async function getReservation(id: string) {
@@ -470,8 +465,18 @@ export async function changeReservationStatus(
   id: string,
   action: "confirm" | "complete" | "reject" | "cancel"
 ) {
-  return estoreRequest<EStoreReservation>(`/api/reservations/${id}/${action}`, {
+  const statusByAction = {
+    confirm: "Confirmed",
+    complete: "Completed",
+    reject: "Rejected",
+    cancel: "Cancelled",
+  } as const;
+
+  return estoreRequest<EStoreReservation>(`/api/reservations/${id}/status`, {
     method: "PATCH",
+    query: {
+      status: statusByAction[action],
+    },
   });
 }
 
@@ -483,5 +488,9 @@ export async function updateReservationNote(id: string, note: string) {
 }
 
 export async function listProductReviews(productId: string) {
-  return estoreRequest<EStoreReview[]>(`/api/reviews/product/${productId}`);
+  const response = await estoreRequest<{
+    items?: EStoreReview[];
+  }>(`/api/products/${productId}/reviews`);
+
+  return response.items ?? [];
 }
