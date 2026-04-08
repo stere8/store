@@ -30,6 +30,8 @@ dotnet build
 dotnet run
 ```
 
+`EStore.Api` now requires a real `ConnectionStrings:DefaultConnection` and uses LocalDB by default from [`EstorePoC/EStore.Api/appsettings.json`](E:/Workspace/03_Projects/stere8/store/EstorePoC/EStore.Api/appsettings.json), so data persists across restarts instead of falling back to an in-memory database.
+
 2. Start the storefront.
 
 ```bash

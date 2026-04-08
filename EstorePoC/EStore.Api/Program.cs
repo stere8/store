@@ -11,19 +11,11 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
-var connectionString = SanitizeSqlServerConnectionString(
-    builder.Configuration.GetConnectionString("DefaultConnection"));
-var useInMemoryDatabase = string.IsNullOrWhiteSpace(connectionString);
+var connectionString = GetRequiredSqlServerConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (!useInMemoryDatabase && !string.IsNullOrWhiteSpace(connectionString))
-    {
-        options.UseSqlServer(connectionString);
-        return;
-    }
-
-    options.UseInMemoryDatabase("estore");
+    options.UseSqlServer(connectionString);
 });
 builder.Services.AddCors(options => options.AddPolicy("any", p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
@@ -47,15 +39,7 @@ app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-if (useInMemoryDatabase)
-{
-    app.Logger.LogWarning(
-        "Using the in-memory database because ConnectionStrings:DefaultConnection is not configured.");
-}
-else
-{
-    app.Logger.LogInformation("Using SQL Server with the configured DefaultConnection.");
-}
+app.Logger.LogInformation("Using SQL Server with the configured DefaultConnection.");
 
 // Tenant extractor (header "X-Tenant-Id" or query "tenantId"; default Kigali City Mall)
 app.Use(async (ctx, next) =>
@@ -1283,6 +1267,20 @@ static string SanitizeSqlServerConnectionString(string? connectionString)
         connectionString
             .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(part => !part.StartsWith("Command Timeout=", StringComparison.OrdinalIgnoreCase)));
+}
+
+static string GetRequiredSqlServerConnectionString(IConfiguration configuration)
+{
+    var connectionString = SanitizeSqlServerConnectionString(
+        configuration.GetConnectionString("DefaultConnection"));
+
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        return connectionString;
+    }
+
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection is required. Configure SQL Server or LocalDB; the in-memory fallback has been removed.");
 }
 
 // =======================================================================

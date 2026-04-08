@@ -137,7 +137,7 @@ flowchart LR
     FS --> API["EStore.Api"]
     FA --> API
     FV --> API
-    API --> DB["SQL Server / LocalDB<br/>InMemory fallback for development"]
+    API --> DB["SQL Server / LocalDB<br/>Persistent storage"]
 ```
 
 ---
@@ -193,7 +193,7 @@ Key architecture characteristics:
 - ASP.NET minimal APIs
 - `AppDbContext` for application data
 - SQL Server / LocalDB support
-- in-memory fallback for development
+- persistent database required at startup
 - CORS and Swagger enabled for development workflows
 - tenant extraction from request context
 - grouped endpoint modules
