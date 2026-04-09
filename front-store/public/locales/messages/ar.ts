@@ -1,5 +1,5 @@
 export default {
-  "header.welcom": "مرحبًا بك في أوريون إي كومرس",
+  "header.welcom": "E-Mall Rwanda",
   "header.follow_us": "تابعنا",
   "header.up_to": "حتى",
   "header.OFF": "خصم",

@@ -16,9 +16,9 @@ export default function page() {
 }
 
 export const metadata: Metadata = {
-  title: "Reservations - E-City - Ecommerce",
+  title: "Reservations - E-Mall Rwanda",
   description: "Customer reservation history and pickup details.",
   icons: {
-    icon: "/assets/images/logo.png",
+    icon: "/assets/branding/e-mall-rwanda-app-icon.png",
   },
 };

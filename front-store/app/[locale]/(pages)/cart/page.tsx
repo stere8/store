@@ -13,10 +13,10 @@ export default function page() {
 }
 
 export const metadata: Metadata = {
-  title: "Cart - E-City - Ecommerce",
+  title: "Cart - E-Mall Rwanda",
   description:
     "A Ecommerce app. We are selling everything, shoes for mens womens and kids",
   icons: {
-    icon: "/assets/images/logo.png",
+    icon: "/assets/branding/e-mall-rwanda-app-icon.png",
   },
 };

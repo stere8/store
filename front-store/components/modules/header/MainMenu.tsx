@@ -13,7 +13,8 @@ export default function MainMenu() {
       <Container>
         <div className="flex justify-between items-center h-full">
           <SidebarMenu className="block lg:hidden" />
-          <Logo />
+          <Logo variant="symbol" className="lg:hidden" />
+          <Logo variant="primary" className="hidden lg:flex" />
           <SearchInput className="hidden lg:flex flex-1 justify-center items-center bg-white max-w-[646px] gap-4 px-2 h-[48px] " />
           <IconsGroup className="hidden w-fit lg:inline-flex  items-center relative " />
           <div className="inline-flex gap-4 lg:hidden">

@@ -1,5 +1,5 @@
 export default {
-        'header.welcom': 'Welcome to E-City online eCommerce store. ',
+        'header.welcom': 'Welcome to E-Mall Rwanda online store.',
         'header.follow_us': 'Follow us',
         'header.up_to': 'up to',
         'header.OFF': 'OFF',

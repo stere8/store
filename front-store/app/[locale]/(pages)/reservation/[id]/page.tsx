@@ -107,9 +107,9 @@ export default async function Page({ params }: ReservationPageProps) {
 }
 
 export const metadata: Metadata = {
-  title: "Reservation - E-City - Ecommerce",
+  title: "Reservation - E-Mall Rwanda",
   description: "Reservation confirmation and pickup details.",
   icons: {
-    icon: "/assets/images/logo.png",
+    icon: "/assets/branding/e-mall-rwanda-app-icon.png",
   },
 };

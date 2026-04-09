@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
+import { BRAND, BRAND_ASSETS } from "@/lib/branding";
+
+const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL?.replace(/\/$/, "");
+const defaultOpenGraphImage = baseUrl
+  ? `${baseUrl}${BRAND_ASSETS.primaryLogo}`
+  : BRAND_ASSETS.primaryLogo;
 
 // Default open graph
 const defaultOpenGraph: Metadata["openGraph"] = {
-  title: "E-City - Multi Vendor Ecommerce platform.",
-  description: "E-City - Multi Vendor Ecommerce platform",
+  title: BRAND.fullName,
+  description: BRAND.description,
   images: [
     {
-      url: `${process.env.NEXT_PUBLIC_SERVER_URL}/assets/images/logo.png`,
+      url: defaultOpenGraphImage,
     },
   ],
   type: "website",
-  url: `${process.env.NEXT_PUBLIC_SERVER_URL}`,
-  siteName: "E-City",
+  url: baseUrl || "/",
+  siteName: BRAND.fullName,
 };
 
 // Dynamic open graph
@@ -19,7 +25,7 @@ export const mergeOpenGraph = (og?: Metadata["openGraph"]) => {
   return {
     ...defaultOpenGraph,
     ...og,
-    image: og?.images ? og.images : defaultOpenGraph.images,
+    images: og?.images ? og.images : defaultOpenGraph.images,
     title: og?.title ? og.title : defaultOpenGraph.title,
     url: og?.url ? og.url : defaultOpenGraph.url,
   };

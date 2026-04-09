@@ -21,9 +21,9 @@ export default async function page({ params }: { params: { _id: string } }) {
 }
 
 export const metadata: Metadata = {
-  title: "Reserve Cart - E-City - Ecommerce",
+  title: "Reserve Cart - E-Mall Rwanda",
   description: "Reserve storefront products using the .NET API checkout flow.",
   icons: {
-    icon: "/assets/images/logo.png",
+    icon: "/assets/branding/e-mall-rwanda-app-icon.png",
   },
 };

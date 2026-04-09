@@ -1,7 +1,7 @@
-// This file contains translations for the E-City Ecommerce platform in Kinyarwanda (rw).
+// This file contains translations for the E-Mall Rwanda storefront in Kinyarwanda (rw).
 // It includes translations for various sections such as header, home page, footer, checkout, cart
 export default {
-  'header.welcom': 'Murakaza neza kuri E-City Ecommerce',
+  'header.welcom': 'Murakaza neza kuri E-Mall Rwanda',
   'header.follow_us': 'Dukurikire',
   'header.up_to': 'kugera kuri',
   'header.OFF': 'igabanyirizwa',

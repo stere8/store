@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ClerkProvider as Clerk } from "@clerk/nextjs";
+import { BRAND_ASSETS } from "@/lib/branding";
 
 interface ClerkProviderProps {
     children: React.ReactNode;
@@ -32,7 +33,7 @@ function ClerkProvider({ children }:ClerkProviderProps ) {
         logoPlacement: "none",
         socialButtonsVariant: "blockButton",
         socialButtonsPlacement: "bottom",
-        logoImageUrl: "/assets/images/logo.png",
+        logoImageUrl: BRAND_ASSETS.primaryLogo,
       },
     }}
     signUpUrl="/sign-up"

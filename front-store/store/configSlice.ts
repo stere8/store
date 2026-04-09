@@ -1,7 +1,8 @@
 import { TypeConfigurationModel } from "@/types/models";
 import { createSlice } from "@reduxjs/toolkit";
+import { BRAND, BRAND_ASSETS, DEFAULT_COPYRIGHT } from "@/lib/branding";
 
-const defaultSiteLogo = "/assets/images/logo.png";
+const defaultSiteLogo = BRAND_ASSETS.primaryLogo;
 
 export interface ConfigState {
   siteDetails: TypeConfigurationModel;
@@ -10,9 +11,9 @@ export interface ConfigState {
 
 const initialState: ConfigState = {
   siteDetails: {
-    name: "",
-    description: "",
-    copyright: "",
+    name: BRAND.fullName,
+    description: BRAND.description,
+    copyright: DEFAULT_COPYRIGHT,
     phone: "",
     address: "",
     email: "",
