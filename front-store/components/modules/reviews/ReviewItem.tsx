@@ -1,5 +1,5 @@
-
 import { getDate } from "@/lib/utils";
+import { BRAND } from "@/lib/branding";
 import { TypeReviewModel } from "@/types/models";
 import Rating from "@mui/material/Rating";
 import Image from "next/image";
@@ -31,13 +31,13 @@ export default function ReviewItem({ item }: { item: TypeReviewModel }) {
       </div>
       <p>{item.review}</p>
       <div className="flex items-center gap-4">
-  <em className="text-gray-400">
-    <FormattedMessage id="review.by" defaultMessage="Reviewed by" />{" "}
-  </em>
-  <strong>E-City</strong>
-  <FormattedMessage id="review.posted-on" defaultMessage="Posted on" />{" "}
-  <em className="text-gray-400">{getDate(item.createdAt)}</em>
-</div>
+        <em className="text-gray-400">
+          <FormattedMessage id="review.by" defaultMessage="Reviewed by" />{" "}
+        </em>
+        <strong>{BRAND.shortName}</strong>
+        <FormattedMessage id="review.posted-on" defaultMessage="Posted on" />{" "}
+        <em className="text-gray-400">{getDate(item.createdAt)}</em>
+      </div>
     </div>
   );
 }

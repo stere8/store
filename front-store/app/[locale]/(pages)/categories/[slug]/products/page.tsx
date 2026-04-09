@@ -26,10 +26,10 @@ export async function generateMetadata({
   params: { slug: string };
 }) {
   return {
-    title: `${params.slug} - E-city`,
+    title: `${params.slug} - E-Mall Rwanda`,
     description: "Online Ecommerce for selling anything electronics",
     icons: {
-      icon: "/assets/images/logo.png",
+      icon: "/assets/branding/e-mall-rwanda-app-icon.png",
     },
   };
 }

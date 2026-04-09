@@ -1,4 +1,5 @@
 import { Cart, Category, Product } from "@/types";
+import { BRAND, BRAND_ASSETS } from "@/lib/branding";
 
 type ApiCategory = {
   id: string;
@@ -45,7 +46,7 @@ type ApiReview = {
 };
 
 const placeholderImage = "/assets/products/image.png";
-const placeholderAvatar = "/assets/images/logo.png";
+const placeholderAvatar = BRAND_ASSETS.symbol;
 
 const toSlug = (value: string) =>
   value
@@ -129,8 +130,8 @@ const buildStore = (product: ApiProduct) =>
     _id: product.vendorId ?? "",
     name: product.vendorName?.trim() || "",
     description: product.vendorName?.trim()
-      ? `${product.vendorName.trim()} on E-Store.`
-      : "Seller on E-Store.",
+      ? `${product.vendorName.trim()} on ${BRAND.shortName}.`
+      : `Seller on ${BRAND.shortName}.`,
     logo: "",
     products: [],
     orders: [],

@@ -16,9 +16,9 @@ export default function page() {
 }
 
 export const metadata: Metadata = {
-  title: "My Account - E-City - Ecommerce",
+  title: "My Account - E-Mall Rwanda",
   description: "Customer profile, reservation activity, and pickup history.",
   icons: {
-    icon: "/assets/images/logo.png",
+    icon: "/assets/branding/e-mall-rwanda-app-icon.png",
   },
 };

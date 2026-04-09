@@ -19,10 +19,10 @@ export default function page() {
 // or Dynamic metadata
 export async function generateMetadata() {
   return {
-    title: `Store - E-city`,
+    title: `Store - E-Mall Rwanda`,
     description: "Online Ecommerce for selling anything electronics",
     icons: {
-      icon: "/assets/images/logo.png",
+      icon: "/assets/branding/e-mall-rwanda-app-icon.png",
     },
   };
 }

@@ -14,10 +14,10 @@ export default function page() {
 }
 
 export const metadata: Metadata = {
-  title: "Order tracking - E-City - Ecommerce",
+  title: "Order tracking - E-Mall Rwanda",
   description:
     "A Ecommerce app. We are selling everything, shoes for mens womens and kids",
   icons: {
-    icon: "/assets/images/logo.png",
+    icon: "/assets/branding/e-mall-rwanda-app-icon.png",
   },
 };

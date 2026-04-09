@@ -1,7 +1,7 @@
-// this file contains translations for the E-City Ecommerce platform in French (fr).
+// This file contains translations for the E-Mall Rwanda storefront in French (fr).
 // It includes translations for various sections such as header, home page, footer, checkout, cart
 export default {
-  'header.welcom': 'Bienvenue sur la boutique en ligne E-City.',
+  'header.welcom': 'Bienvenue sur la boutique en ligne E-Mall Rwanda.',
   'header.follow_us': 'Suivez-nous',
   'header.up_to': 'jusqu\'à',
   'header.OFF': 'DE RÉDUCTION',

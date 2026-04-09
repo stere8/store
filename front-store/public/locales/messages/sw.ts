@@ -1,7 +1,7 @@
-// This file contains translations for the E-City Ecommerce platform in Kinyarwanda (rw).
+// This file contains translations for the E-Mall Rwanda storefront in Swahili (sw).
 // It includes translations for various sections such as header, home page, footer, checkout, cart
 export default {
-  'header.welcom': 'Karibu kwenye duka la mtandaoni la E-City.',
+  'header.welcom': 'Karibu kwenye duka la mtandaoni la E-Mall Rwanda.',
   'header.follow_us': 'Tufuatilie',
   'header.up_to': 'hadi',
   'header.OFF': 'PUNGUZO',

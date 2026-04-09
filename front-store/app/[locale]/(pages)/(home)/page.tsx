@@ -39,10 +39,10 @@ export default async function Home() {
 }
 
 export const metadata: Metadata = {
-  title: "Home - E-City - Ecommerce",
+  title: "Home - E-Mall Rwanda",
   description:
     "A Ecommerce app. We are selling everything, shoes for mens womens and kids",
   icons: {
-    icon: "/assets/images/logo.png",
+    icon: "/assets/branding/e-mall-rwanda-app-icon.png",
   },
 };

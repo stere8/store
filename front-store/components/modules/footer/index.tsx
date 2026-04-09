@@ -4,6 +4,7 @@ import { Badge } from "@/components/custom/Badge";
 import Container from "@/components/custom/Container";
 import Logo from "@/components/custom/Logo";
 import { productTags } from "@/constants";
+import { DEFAULT_COPYRIGHT } from "@/lib/branding";
 import { IRootState } from "@/store";
 import { ArrowRight } from "lucide-react";
 // import { useTranslations } from "next-intl";
@@ -164,7 +165,7 @@ export default function Footer() {
       <section className="py-[24px] border-t">
         <Container>
           <p className="flex justify-center text-center text-white text-body-sm-400">
-            {config.siteDetails?.copyright}
+            {config.siteDetails?.copyright || DEFAULT_COPYRIGHT}
           </p>
         </Container>
       </section>
