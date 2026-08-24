@@ -21,6 +21,9 @@ namespace EStore.Api.Data
         public DbSet<ShoppingCart> ShoppingCarts => Set<ShoppingCart>();
         public DbSet<ShoppingCartItem> ShoppingCartItems => Set<ShoppingCartItem>();
         public DbSet<Review> Reviews => Set<Review>();
+        public DbSet<Referral> Referrals => Set<Referral>();
+        public DbSet<PointTransaction> PointTransactions => Set<PointTransaction>();
+        public DbSet<CustomerPointBalance> CustomerPointBalances => Set<CustomerPointBalance>();
 
         protected override void OnModelCreating(ModelBuilder m)
         {
@@ -91,6 +94,63 @@ namespace EStore.Api.Data
                 e.HasIndex(x => new { x.TenantId, x.PhoneNumber }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.Username }).IsUnique();
+            });
+
+            // Referral
+            m.Entity<Referral>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.RecommendedEmail).HasMaxLength(160).IsRequired();
+                e.Property(x => x.RecommendedEmailNormalized).HasMaxLength(160).IsRequired();
+                e.Property(x => x.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(32)
+                    .IsRequired();
+                e.Property(x => x.CancelReason).HasMaxLength(240);
+
+                e.HasOne(x => x.Tenant).WithMany()
+                    .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.RecommenderCustomer).WithMany(c => c.SentReferrals)
+                    .HasForeignKey(x => x.RecommenderCustomerId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.RecommendedCustomer).WithMany(c => c.ReceivedReferrals)
+                    .HasForeignKey(x => x.RecommendedCustomerId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => new { x.TenantId, x.RecommenderCustomerId, x.RecommendedEmailNormalized })
+                    .IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.RecommendedEmailNormalized, x.Status });
+                e.HasIndex(x => new { x.TenantId, x.RecommenderCustomerId, x.CreatedAt });
+            });
+
+            // PointTransaction
+            m.Entity<PointTransaction>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.Reason).HasMaxLength(80).IsRequired();
+                e.Property(x => x.SourceType).HasMaxLength(80).IsRequired();
+                e.Property(x => x.Notes).HasMaxLength(240);
+
+                e.HasOne(x => x.Tenant).WithMany()
+                    .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Customer).WithMany(c => c.PointTransactions)
+                    .HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => new { x.TenantId, x.CustomerId, x.CreatedAt });
+                e.HasIndex(x => new { x.TenantId, x.CustomerId, x.SourceType, x.SourceId, x.Reason })
+                    .IsUnique();
+            });
+
+            // CustomerPointBalance
+            m.Entity<CustomerPointBalance>(e =>
+            {
+                e.HasKey(x => new { x.TenantId, x.CustomerId });
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+
+                e.HasOne(x => x.Tenant).WithMany()
+                    .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Customer).WithOne(c => c.PointBalance)
+                    .HasForeignKey<CustomerPointBalance>(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
             });
 
             m.Entity<CustomerIdentityIgnore>(e =>
@@ -221,6 +281,9 @@ namespace EStore.Api.Data
             m.Entity<Reservation>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<ReservationItem>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Review>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<Referral>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<PointTransaction>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<CustomerPointBalance>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<ShoppingCart>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<ShoppingCartItem>().HasQueryFilter(x =>
                 CurrentTenantId == null ||
@@ -233,6 +296,13 @@ namespace EStore.Api.Data
 
         private static void SeedMinimalTenants(ModelBuilder m)
         {
+            var kigaliCreatedAt = new DateTimeOffset(
+                new DateTime(2026, 4, 7, 20, 0, 20, 306, DateTimeKind.Unspecified).AddTicks(4994),
+                TimeSpan.Zero);
+            var chicCreatedAt = new DateTimeOffset(
+                new DateTime(2026, 4, 7, 20, 0, 20, 306, DateTimeKind.Unspecified).AddTicks(4999),
+                TimeSpan.Zero);
+
             m.Entity<Tenant>().HasData(
                 new Tenant
                 {
@@ -242,7 +312,7 @@ namespace EStore.Api.Data
                     ContactEmail = "info@kcm.rw",
                     TimeZone = "Africa/Kigali",
                     DefaultExpiryHours = 24,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = kigaliCreatedAt
                 },
                 new Tenant
                 {
@@ -252,7 +322,7 @@ namespace EStore.Api.Data
                     ContactEmail = "info@chic.rw",
                     TimeZone = "Africa/Kigali",
                     DefaultExpiryHours = 12,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = chicCreatedAt
                 }
             );
         }

@@ -31,6 +31,7 @@ builder.Services.AddSwaggerGen();
 // Payment strategy placeholder (currently unused)
 builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>();
 builder.Services.AddSingleton<VendorAuthService>();
+builder.Services.AddScoped<PointsService>();
 
 var app = builder.Build();
 
@@ -60,6 +61,8 @@ app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTimeOffset.UtcN
 // Reuse the endpoint modules for routes the storefront already depends on.
 app.MapGroup("/api/categories").MapCategoriesEndpoints();
 app.MapGroup("/api/customers").MapCustomersEndpoints();
+app.MapGroup("/api/referrals").MapReferralsEndpoints();
+app.MapGroup("/api/points").MapPointsEndpoints();
 app.MapGroup("/api/vendor-auth").MapVendorAuthEndpoints();
 app.MapGroup("/api/vendor-portal").MapVendorPortalEndpoints();
 

@@ -16,4 +16,8 @@ public class Customer
 
     public Tenant? Tenant { get; set; }
     public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
+    public ICollection<Referral> SentReferrals { get; set; } = new List<Referral>();
+    public ICollection<Referral> ReceivedReferrals { get; set; } = new List<Referral>();
+    public ICollection<PointTransaction> PointTransactions { get; set; } = new List<PointTransaction>();
+    public CustomerPointBalance? PointBalance { get; set; }
 }

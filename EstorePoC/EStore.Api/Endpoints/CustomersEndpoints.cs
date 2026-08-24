@@ -1,5 +1,6 @@
 ﻿using EStore.Api.Data;
 using EStore.Api.Models;
+using EStore.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace EStore.Api.Endpoints;
@@ -24,7 +25,11 @@ public static class CustomersEndpoints
     // -------------------------------------------------------------
     // 1️⃣ Create or Update Customer (Upsert)
     // -------------------------------------------------------------
-    private static async Task<IResult> UpsertCustomer(AppDbContext db, CustomerDto dto)
+    private static async Task<IResult> UpsertCustomer(
+        AppDbContext db,
+        PointsService pointsService,
+        CustomerDto dto,
+        CancellationToken cancellationToken)
     {
         var tenant = db.CurrentTenantId!;
         var username = dto.Username.Trim();
@@ -54,7 +59,8 @@ public static class CustomersEndpoints
             };
 
             db.Customers.Add(customer);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(cancellationToken);
+            await pointsService.MatchPendingReferralsForCustomerAsync(customer, cancellationToken);
 
             return Results.Created($"/api/customers/{customer.Id}", customer);
         }
@@ -71,7 +77,8 @@ public static class CustomersEndpoints
             existing.ArchivedAt = null;
             existing.ArchivedReason = null;
 
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(cancellationToken);
+            await pointsService.MatchPendingReferralsForCustomerAsync(existing, cancellationToken);
 
             return Results.Ok(existing);
         }
@@ -232,8 +239,21 @@ public static class CustomersEndpoints
             .AnyAsync(c => c.TenantId == tenant && c.CustomerId == customer.Id);
         var hasLinkedReviews = await db.Reviews
             .AnyAsync(r => r.TenantId == tenant && r.CustomerId == customer.Id);
+        var hasLinkedReferrals = await db.Referrals
+            .AnyAsync(r =>
+                r.TenantId == tenant &&
+                (r.RecommenderCustomerId == customer.Id || r.RecommendedCustomerId == customer.Id));
+        var hasPointTransactions = await db.PointTransactions
+            .AnyAsync(t => t.TenantId == tenant && t.CustomerId == customer.Id);
+        var hasPointBalance = await db.CustomerPointBalances
+            .AnyAsync(b => b.TenantId == tenant && b.CustomerId == customer.Id);
 
-        if (!hasLinkedReservations && !hasLinkedCarts && !hasLinkedReviews)
+        if (!hasLinkedReservations &&
+            !hasLinkedCarts &&
+            !hasLinkedReviews &&
+            !hasLinkedReferrals &&
+            !hasPointTransactions &&
+            !hasPointBalance)
         {
             db.Customers.Remove(customer);
             await db.SaveChangesAsync();
