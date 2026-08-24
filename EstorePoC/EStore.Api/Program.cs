@@ -40,7 +40,7 @@ app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.Logger.LogInformation("Using SQL Server with the configured DefaultConnection.");
+app.Logger.LogInformation("Using SQL Server with the configured database connection.");
 
 // Tenant extractor (header "X-Tenant-Id" or query "tenantId"; default Kigali City Mall)
 app.Use(async (ctx, next) =>
@@ -1274,16 +1274,41 @@ static string SanitizeSqlServerConnectionString(string? connectionString)
 
 static string GetRequiredSqlServerConnectionString(IConfiguration configuration)
 {
+    var databaseUrl = SanitizeSqlServerConnectionString(configuration["DATABASE_URL"]);
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        return databaseUrl;
+    }
+
     var connectionString = SanitizeSqlServerConnectionString(
         configuration.GetConnectionString("DefaultConnection"));
 
     if (!string.IsNullOrWhiteSpace(connectionString))
     {
+        if (IsLocalDbConnectionString(connectionString) && !OperatingSystem.IsWindows())
+        {
+            throw new InvalidOperationException(
+                "DATABASE_URL or ConnectionStrings:DefaultConnection must point to a non-LocalDB SQL Server when running outside Windows.");
+        }
+
         return connectionString;
     }
 
     throw new InvalidOperationException(
-        "ConnectionStrings:DefaultConnection is required. Configure SQL Server or LocalDB; the in-memory fallback has been removed.");
+        "DATABASE_URL or ConnectionStrings:DefaultConnection is required. Configure SQL Server or LocalDB on Windows.");
+}
+
+static bool IsLocalDbConnectionString(string connectionString)
+{
+    try
+    {
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        return builder.DataSource.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
+    }
+    catch
+    {
+        return connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 // =======================================================================
