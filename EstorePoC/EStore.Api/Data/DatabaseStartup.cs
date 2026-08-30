@@ -15,6 +15,7 @@ public static class DatabaseStartup
         if (!db.Database.IsSqlServer())
         {
             db.Database.EnsureCreated();
+            EnsurePostgresDashboardTablesIfNeeded(db, logger);
             return;
         }
 
@@ -25,16 +26,176 @@ public static class DatabaseStartup
         try
         {
             db.Database.Migrate();
+            EnsureSqlServerDashboardTablesIfNeeded(connectionString, logger);
         }
         catch (SqlException ex) when (TryRecoverBrokenLocalDbCatalog(connectionString, logger, ex))
         {
             BaselineLegacyInitialMigrationIfNeeded(connectionString, logger);
             db.Database.Migrate();
+            EnsureSqlServerDashboardTablesIfNeeded(connectionString, logger);
         }
     }
 
     public static bool HasSeedProducts(AppDbContext db, string tenantId) =>
         db.Products.Any(x => x.TenantId == tenantId);
+
+    private static void EnsurePostgresDashboardTablesIfNeeded(AppDbContext db, ILogger logger)
+    {
+        if (!IsPostgres(db))
+        {
+            return;
+        }
+
+        db.Database.ExecuteSqlRaw("""
+            CREATE TABLE IF NOT EXISTS "StoreLeases" (
+                "Id" uuid NOT NULL,
+                "TenantId" character varying(80) NOT NULL,
+                "VendorId" uuid NOT NULL,
+                "LocationId" uuid NOT NULL,
+                "MonthlyRent" numeric(18,2) NOT NULL,
+                "Currency" character varying(8) NOT NULL,
+                "BillingDay" integer NOT NULL,
+                "SecurityDeposit" numeric(18,2) NOT NULL,
+                "LeaseStart" timestamp with time zone NOT NULL,
+                "LeaseEnd" timestamp with time zone NULL,
+                "Status" character varying(32) NOT NULL,
+                "Notes" character varying(240) NULL,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_StoreLeases" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_StoreLeases_Tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_StoreLeases_Vendors_VendorId" FOREIGN KEY ("VendorId") REFERENCES "Vendors" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_StoreLeases_Locations_LocationId" FOREIGN KEY ("LocationId") REFERENCES "Locations" ("Id") ON DELETE RESTRICT
+            );
+
+            CREATE TABLE IF NOT EXISTS "RentPayments" (
+                "Id" uuid NOT NULL,
+                "TenantId" character varying(80) NOT NULL,
+                "StoreLeaseId" uuid NOT NULL,
+                "VendorId" uuid NOT NULL,
+                "LocationId" uuid NOT NULL,
+                "PeriodStart" timestamp with time zone NOT NULL,
+                "PeriodEnd" timestamp with time zone NOT NULL,
+                "DueDate" timestamp with time zone NOT NULL,
+                "AmountDue" numeric(18,2) NOT NULL,
+                "AmountPaid" numeric(18,2) NOT NULL,
+                "Currency" character varying(8) NOT NULL,
+                "Status" character varying(32) NOT NULL,
+                "PaymentReference" character varying(80) NULL,
+                "PaidAt" timestamp with time zone NULL,
+                "Notes" character varying(240) NULL,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_RentPayments" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_RentPayments_StoreLeases_StoreLeaseId" FOREIGN KEY ("StoreLeaseId") REFERENCES "StoreLeases" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_RentPayments_Tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_RentPayments_Vendors_VendorId" FOREIGN KEY ("VendorId") REFERENCES "Vendors" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_RentPayments_Locations_LocationId" FOREIGN KEY ("LocationId") REFERENCES "Locations" ("Id") ON DELETE RESTRICT
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_StoreLeases_TenantId_Status" ON "StoreLeases" ("TenantId", "Status");
+            CREATE INDEX IF NOT EXISTS "IX_StoreLeases_TenantId_VendorId" ON "StoreLeases" ("TenantId", "VendorId");
+            CREATE INDEX IF NOT EXISTS "IX_StoreLeases_TenantId_LocationId" ON "StoreLeases" ("TenantId", "LocationId");
+            CREATE INDEX IF NOT EXISTS "IX_StoreLeases_TenantId_LeaseEnd" ON "StoreLeases" ("TenantId", "LeaseEnd");
+            CREATE INDEX IF NOT EXISTS "IX_RentPayments_TenantId_Status" ON "RentPayments" ("TenantId", "Status");
+            CREATE INDEX IF NOT EXISTS "IX_RentPayments_TenantId_DueDate" ON "RentPayments" ("TenantId", "DueDate");
+            CREATE INDEX IF NOT EXISTS "IX_RentPayments_TenantId_VendorId_DueDate" ON "RentPayments" ("TenantId", "VendorId", "DueDate");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_RentPayments_TenantId_StoreLeaseId_PeriodStart" ON "RentPayments" ("TenantId", "StoreLeaseId", "PeriodStart");
+            """);
+
+        logger.LogInformation("Ensured PostgreSQL dashboard tables exist.");
+    }
+
+    private static bool IsPostgres(AppDbContext db) =>
+        db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static void EnsureSqlServerDashboardTablesIfNeeded(
+        string? connectionString,
+        ILogger logger)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return;
+        }
+
+        using var connection = new SqlConnection(connectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            IF OBJECT_ID(N'[StoreLeases]') IS NULL
+            BEGIN
+                CREATE TABLE [StoreLeases] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [TenantId] nvarchar(80) NOT NULL,
+                    [VendorId] uniqueidentifier NOT NULL,
+                    [LocationId] uniqueidentifier NOT NULL,
+                    [MonthlyRent] decimal(18,2) NOT NULL,
+                    [Currency] nvarchar(8) NOT NULL,
+                    [BillingDay] int NOT NULL,
+                    [SecurityDeposit] decimal(18,2) NOT NULL,
+                    [LeaseStart] datetimeoffset NOT NULL,
+                    [LeaseEnd] datetimeoffset NULL,
+                    [Status] nvarchar(32) NOT NULL,
+                    [Notes] nvarchar(240) NULL,
+                    [CreatedAt] datetimeoffset NOT NULL,
+                    [UpdatedAt] datetimeoffset NOT NULL,
+                    CONSTRAINT [PK_StoreLeases] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_StoreLeases_Tenants_TenantId] FOREIGN KEY ([TenantId]) REFERENCES [Tenants] ([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_StoreLeases_Vendors_VendorId] FOREIGN KEY ([VendorId]) REFERENCES [Vendors] ([Id]) ON DELETE NO ACTION,
+                    CONSTRAINT [FK_StoreLeases_Locations_LocationId] FOREIGN KEY ([LocationId]) REFERENCES [Locations] ([Id]) ON DELETE NO ACTION
+                );
+            END
+
+            IF OBJECT_ID(N'[RentPayments]') IS NULL
+            BEGIN
+                CREATE TABLE [RentPayments] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [TenantId] nvarchar(80) NOT NULL,
+                    [StoreLeaseId] uniqueidentifier NOT NULL,
+                    [VendorId] uniqueidentifier NOT NULL,
+                    [LocationId] uniqueidentifier NOT NULL,
+                    [PeriodStart] datetimeoffset NOT NULL,
+                    [PeriodEnd] datetimeoffset NOT NULL,
+                    [DueDate] datetimeoffset NOT NULL,
+                    [AmountDue] decimal(18,2) NOT NULL,
+                    [AmountPaid] decimal(18,2) NOT NULL,
+                    [Currency] nvarchar(8) NOT NULL,
+                    [Status] nvarchar(32) NOT NULL,
+                    [PaymentReference] nvarchar(80) NULL,
+                    [PaidAt] datetimeoffset NULL,
+                    [Notes] nvarchar(240) NULL,
+                    [CreatedAt] datetimeoffset NOT NULL,
+                    [UpdatedAt] datetimeoffset NOT NULL,
+                    CONSTRAINT [PK_RentPayments] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_RentPayments_StoreLeases_StoreLeaseId] FOREIGN KEY ([StoreLeaseId]) REFERENCES [StoreLeases] ([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_RentPayments_Tenants_TenantId] FOREIGN KEY ([TenantId]) REFERENCES [Tenants] ([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_RentPayments_Vendors_VendorId] FOREIGN KEY ([VendorId]) REFERENCES [Vendors] ([Id]) ON DELETE NO ACTION,
+                    CONSTRAINT [FK_RentPayments_Locations_LocationId] FOREIGN KEY ([LocationId]) REFERENCES [Locations] ([Id]) ON DELETE NO ACTION
+                );
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreLeases_TenantId_Status' AND object_id = OBJECT_ID(N'[StoreLeases]'))
+                CREATE INDEX [IX_StoreLeases_TenantId_Status] ON [StoreLeases] ([TenantId], [Status]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreLeases_TenantId_VendorId' AND object_id = OBJECT_ID(N'[StoreLeases]'))
+                CREATE INDEX [IX_StoreLeases_TenantId_VendorId] ON [StoreLeases] ([TenantId], [VendorId]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreLeases_TenantId_LocationId' AND object_id = OBJECT_ID(N'[StoreLeases]'))
+                CREATE INDEX [IX_StoreLeases_TenantId_LocationId] ON [StoreLeases] ([TenantId], [LocationId]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreLeases_TenantId_LeaseEnd' AND object_id = OBJECT_ID(N'[StoreLeases]'))
+                CREATE INDEX [IX_StoreLeases_TenantId_LeaseEnd] ON [StoreLeases] ([TenantId], [LeaseEnd]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_RentPayments_TenantId_Status' AND object_id = OBJECT_ID(N'[RentPayments]'))
+                CREATE INDEX [IX_RentPayments_TenantId_Status] ON [RentPayments] ([TenantId], [Status]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_RentPayments_TenantId_DueDate' AND object_id = OBJECT_ID(N'[RentPayments]'))
+                CREATE INDEX [IX_RentPayments_TenantId_DueDate] ON [RentPayments] ([TenantId], [DueDate]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_RentPayments_TenantId_VendorId_DueDate' AND object_id = OBJECT_ID(N'[RentPayments]'))
+                CREATE INDEX [IX_RentPayments_TenantId_VendorId_DueDate] ON [RentPayments] ([TenantId], [VendorId], [DueDate]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_RentPayments_TenantId_StoreLeaseId_PeriodStart' AND object_id = OBJECT_ID(N'[RentPayments]'))
+                CREATE UNIQUE INDEX [IX_RentPayments_TenantId_StoreLeaseId_PeriodStart] ON [RentPayments] ([TenantId], [StoreLeaseId], [PeriodStart]);
+            """;
+
+        command.ExecuteNonQuery();
+        logger.LogInformation("Ensured SQL Server dashboard tables exist.");
+    }
 
     private static void BaselineLegacyInitialMigrationIfNeeded(
         string? connectionString,

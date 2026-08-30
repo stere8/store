@@ -36,6 +36,15 @@ public static class DemoSeed
         new("Casa Living", "Casa Living Rwanda Ltd", "+250788000005", "support@casaliving.rw", "Home and lifestyle essentials.", "Kimironko Market Annex")
     ];
 
+    public static IReadOnlyList<SeedStoreLease> StoreLeases { get; } =
+    [
+        new("Kigali City Electronics", "Kigali City Mall - Ground Floor", 1500m, "USD", 5, 3000m, LeaseStatus.Active, "Anchor electronics tenant."),
+        new("Savanna Mobile", "Kacyiru Tech Plaza", 1200m, "USD", 5, 2400m, LeaseStatus.Active, "Mobile accessories storefront."),
+        new("Urban Workspace", "Kigali City Mall - Ground Floor", 1100m, "USD", 10, 2200m, LeaseStatus.Active, "Office supply kiosk."),
+        new("Pulse Fitness Hub", "Remera Lifestyle Hub", 900m, "USD", 7, 1800m, LeaseStatus.Active, "Fitness and recovery store."),
+        new("Casa Living", "Kimironko Market Annex", 1000m, "USD", 5, 2000m, LeaseStatus.Active, "Home and kitchen store.")
+    ];
+
     public static IReadOnlyList<SeedProduct> Products { get; } =
     [
         new("Kigali City Electronics", "Electronics", "Orion Smart Speaker", "Compact wireless speaker.", 129.99m, 18, "https://picsum.photos/seed/orion-speaker/900/900"),
@@ -156,6 +165,29 @@ public static class DemoSeed
         new("RES-KCM-DEMO-007", "310007", "gabriel.s", "Savanna Mobile", ReservationStatus.Rejected, now.AddDays(-4), now.AddDays(-3), "Color option went out of stock.", [new("Beam 10 Tablet", 1)]),
         new("RES-KCM-DEMO-008", "310008", "hope.c", "Casa Living", ReservationStatus.Pending, now.AddHours(-20), now.AddHours(10), "Customer wants to inspect finish.", [new("Cloud Linen Bedding Set", 1), new("Glow Ambient Lamp", 2)])
     ];
+
+    public static IReadOnlyList<SeedRentPayment> RentPayments(DateTimeOffset now)
+    {
+        var currentPeriodStart = StartOfUtcMonth(now);
+        var previousPeriodStart = currentPeriodStart.AddMonths(-1);
+
+        return
+        [
+            new("Kigali City Electronics", previousPeriodStart, 1500m, 1500m, RentPaymentStatus.Paid, "KCM-RENT-PREV-001", "Previous month paid."),
+            new("Savanna Mobile", previousPeriodStart, 1200m, 1200m, RentPaymentStatus.Paid, "KCM-RENT-PREV-002", "Previous month paid."),
+            new("Urban Workspace", previousPeriodStart, 1100m, 1100m, RentPaymentStatus.Paid, "KCM-RENT-PREV-003", "Previous month paid."),
+            new("Pulse Fitness Hub", previousPeriodStart, 900m, 900m, RentPaymentStatus.Paid, "KCM-RENT-PREV-004", "Previous month paid."),
+            new("Casa Living", previousPeriodStart, 1000m, 1000m, RentPaymentStatus.Paid, "KCM-RENT-PREV-005", "Previous month paid."),
+            new("Kigali City Electronics", currentPeriodStart, 1500m, 1500m, RentPaymentStatus.Paid, "KCM-RENT-CUR-001", "Current rent paid."),
+            new("Savanna Mobile", currentPeriodStart, 1200m, 700m, RentPaymentStatus.Partial, "KCM-RENT-CUR-002", "Partial payment recorded."),
+            new("Urban Workspace", currentPeriodStart, 1100m, 0m, RentPaymentStatus.Pending, null, "Due this month."),
+            new("Pulse Fitness Hub", currentPeriodStart, 900m, 0m, RentPaymentStatus.Overdue, null, "Payment follow-up needed."),
+            new("Casa Living", currentPeriodStart, 1000m, 1000m, RentPaymentStatus.Paid, "KCM-RENT-CUR-005", "Current rent paid.")
+        ];
+    }
+
+    private static DateTimeOffset StartOfUtcMonth(DateTimeOffset value) =>
+        new(value.UtcDateTime.Year, value.UtcDateTime.Month, 1, 0, 0, 0, TimeSpan.Zero);
 }
 
 public record SeedLocation(string Name, string Code, string Description, string AddressLine1, string Region, string City, string Country, string Floor, string Unit);
@@ -168,3 +200,5 @@ public record SeedCartItem(string ProductName, int Quantity);
 public record SeedReview(string CustomerUsername, string ProductName, int Rating, string Title, string Comment);
 public record SeedReservation(string ReservationNumber, string PickupCode, string CustomerUsername, string VendorDisplayName, ReservationStatus Status, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, string VendorNotes, SeedReservationItem[] Items);
 public record SeedReservationItem(string ProductName, int Quantity);
+public record SeedStoreLease(string VendorDisplayName, string LocationName, decimal MonthlyRent, string Currency, int BillingDay, decimal SecurityDeposit, LeaseStatus Status, string Notes);
+public record SeedRentPayment(string VendorDisplayName, DateTimeOffset PeriodStart, decimal AmountDue, decimal AmountPaid, RentPaymentStatus Status, string? PaymentReference, string Notes);

@@ -73,6 +73,7 @@ app.MapGroup("/api/referrals").MapReferralsEndpoints();
 app.MapGroup("/api/points").MapPointsEndpoints();
 app.MapGroup("/api/vendor-auth").MapVendorAuthEndpoints();
 app.MapGroup("/api/vendor-portal").MapVendorPortalEndpoints();
+app.MapGroup("/api/landlord").MapLandlordEndpoints();
 
 // =======================================================================
 // LOCATIONS
@@ -866,6 +867,7 @@ void SeedDemoCatalog(WebApplication webApp)
 
     if (DatabaseStartup.HasSeedProducts(db, tenantId))
     {
+        EnsureDemoRentTrackingData(db, tenantId, DateTimeOffset.UtcNow);
         webApp.Logger.LogInformation(
             "Skipping demo seed because tenant {TenantId} already contains products.",
             tenantId);
@@ -1218,7 +1220,123 @@ void SeedDemoCatalog(WebApplication webApp)
     }
 
     db.SaveChanges();
+    EnsureDemoRentTrackingData(db, tenantId, now);
 }
+
+void EnsureDemoRentTrackingData(AppDbContext db, string tenantId, DateTimeOffset now)
+{
+    var vendorsByName = db.Vendors
+        .Where(x => x.TenantId == tenantId)
+        .ToDictionary(x => x.DisplayName);
+    var locationsByName = db.Locations
+        .Where(x => x.TenantId == tenantId)
+        .ToDictionary(x => x.Name);
+
+    if (vendorsByName.Count == 0 || locationsByName.Count == 0)
+    {
+        return;
+    }
+
+    var existingLeases = db.StoreLeases
+        .Where(x => x.TenantId == tenantId)
+        .ToList();
+
+    foreach (var seed in DemoSeed.StoreLeases)
+    {
+        if (!vendorsByName.TryGetValue(seed.VendorDisplayName, out var vendor) ||
+            !locationsByName.TryGetValue(seed.LocationName, out var location))
+        {
+            continue;
+        }
+
+        var lease = existingLeases.FirstOrDefault(x => x.VendorId == vendor.Id);
+        if (lease is null)
+        {
+            lease = new StoreLease
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                VendorId = vendor.Id,
+                LocationId = location.Id,
+                CreatedAt = now,
+            };
+            db.StoreLeases.Add(lease);
+            existingLeases.Add(lease);
+        }
+
+        lease.LocationId = location.Id;
+        lease.MonthlyRent = seed.MonthlyRent;
+        lease.Currency = seed.Currency;
+        lease.BillingDay = seed.BillingDay;
+        lease.SecurityDeposit = seed.SecurityDeposit;
+        lease.LeaseStart = StartOfUtcMonth(now).AddMonths(-6);
+        lease.LeaseEnd = null;
+        lease.Status = seed.Status;
+        lease.Notes = seed.Notes;
+        lease.UpdatedAt = now;
+    }
+
+    db.SaveChanges();
+
+    var leasesByVendorName = db.StoreLeases
+        .Include(x => x.Vendor)
+        .Where(x => x.TenantId == tenantId)
+        .AsEnumerable()
+        .Where(x => x.Vendor is not null)
+        .ToDictionary(x => x.Vendor!.DisplayName);
+    var existingPayments = db.RentPayments
+        .Where(x => x.TenantId == tenantId)
+        .ToList();
+
+    foreach (var seed in DemoSeed.RentPayments(now))
+    {
+        if (!leasesByVendorName.TryGetValue(seed.VendorDisplayName, out var lease))
+        {
+            continue;
+        }
+
+        var periodStart = seed.PeriodStart.ToUniversalTime();
+        var payment = existingPayments.FirstOrDefault(x =>
+            x.StoreLeaseId == lease.Id &&
+            x.PeriodStart == periodStart);
+        if (payment is null)
+        {
+            payment = new RentPayment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                StoreLeaseId = lease.Id,
+                VendorId = lease.VendorId,
+                LocationId = lease.LocationId,
+                PeriodStart = periodStart,
+                CreatedAt = now,
+            };
+            db.RentPayments.Add(payment);
+            existingPayments.Add(payment);
+        }
+
+        var dueDay = Math.Min(lease.BillingDay, DateTime.DaysInMonth(periodStart.Year, periodStart.Month));
+        var dueDate = new DateTimeOffset(periodStart.Year, periodStart.Month, dueDay, 0, 0, 0, TimeSpan.Zero);
+
+        payment.VendorId = lease.VendorId;
+        payment.LocationId = lease.LocationId;
+        payment.PeriodEnd = periodStart.AddMonths(1).AddTicks(-1);
+        payment.DueDate = dueDate;
+        payment.AmountDue = seed.AmountDue;
+        payment.AmountPaid = seed.AmountPaid;
+        payment.Currency = lease.Currency;
+        payment.Status = seed.Status;
+        payment.PaymentReference = seed.PaymentReference;
+        payment.PaidAt = seed.AmountPaid > 0 ? dueDate.AddDays(-1) : null;
+        payment.Notes = seed.Notes;
+        payment.UpdatedAt = now;
+    }
+
+    db.SaveChanges();
+}
+
+DateTimeOffset StartOfUtcMonth(DateTimeOffset value) =>
+    new(value.UtcDateTime.Year, value.UtcDateTime.Month, 1, 0, 0, 0, TimeSpan.Zero);
 
 SeedDemoCatalog(app);
 EnsureVendorAccessSetup(app);

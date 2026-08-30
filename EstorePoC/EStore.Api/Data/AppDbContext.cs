@@ -24,6 +24,8 @@ namespace EStore.Api.Data
         public DbSet<Referral> Referrals => Set<Referral>();
         public DbSet<PointTransaction> PointTransactions => Set<PointTransaction>();
         public DbSet<CustomerPointBalance> CustomerPointBalances => Set<CustomerPointBalance>();
+        public DbSet<StoreLease> StoreLeases => Set<StoreLease>();
+        public DbSet<RentPayment> RentPayments => Set<RentPayment>();
 
         protected override void OnModelCreating(ModelBuilder m)
         {
@@ -160,6 +162,63 @@ namespace EStore.Api.Data
                     .HasForeignKey<CustomerPointBalance>(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
             });
 
+            // StoreLease
+            m.Entity<StoreLease>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.MonthlyRent).HasPrecision(18, 2);
+                e.Property(x => x.SecurityDeposit).HasPrecision(18, 2);
+                e.Property(x => x.Currency).HasMaxLength(8).IsRequired();
+                e.Property(x => x.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(32)
+                    .IsRequired();
+                e.Property(x => x.Notes).HasMaxLength(240);
+
+                e.HasOne(x => x.Tenant).WithMany()
+                    .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Vendor).WithMany()
+                    .HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany()
+                    .HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => new { x.TenantId, x.Status });
+                e.HasIndex(x => new { x.TenantId, x.VendorId });
+                e.HasIndex(x => new { x.TenantId, x.LocationId });
+                e.HasIndex(x => new { x.TenantId, x.LeaseEnd });
+            });
+
+            // RentPayment
+            m.Entity<RentPayment>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.AmountDue).HasPrecision(18, 2);
+                e.Property(x => x.AmountPaid).HasPrecision(18, 2);
+                e.Property(x => x.Currency).HasMaxLength(8).IsRequired();
+                e.Property(x => x.PaymentReference).HasMaxLength(80);
+                e.Property(x => x.Notes).HasMaxLength(240);
+                e.Property(x => x.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(32)
+                    .IsRequired();
+
+                e.HasOne(x => x.StoreLease).WithMany(l => l.RentPayments)
+                    .HasForeignKey(x => x.StoreLeaseId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Tenant).WithMany()
+                    .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Vendor).WithMany()
+                    .HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany()
+                    .HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => new { x.TenantId, x.Status });
+                e.HasIndex(x => new { x.TenantId, x.DueDate });
+                e.HasIndex(x => new { x.TenantId, x.VendorId, x.DueDate });
+                e.HasIndex(x => new { x.TenantId, x.StoreLeaseId, x.PeriodStart }).IsUnique();
+            });
+
             m.Entity<CustomerIdentityIgnore>(e =>
             {
                 e.HasKey(x => x.Id);
@@ -291,6 +350,8 @@ namespace EStore.Api.Data
             m.Entity<Referral>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<PointTransaction>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<CustomerPointBalance>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<StoreLease>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<RentPayment>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<ShoppingCart>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<ShoppingCartItem>().HasQueryFilter(x =>
                 CurrentTenantId == null ||
