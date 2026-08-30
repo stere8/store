@@ -27,6 +27,8 @@ namespace EStore.Api.Data
 
         protected override void OnModelCreating(ModelBuilder m)
         {
+            var isSqlServer = Database.ProviderName?.Contains("SqlServer", StringComparison.OrdinalIgnoreCase) == true;
+
             // Tenant
             m.Entity<Tenant>(e =>
             {
@@ -66,15 +68,20 @@ namespace EStore.Api.Data
                     .HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
 
                 e.HasIndex(x => new { x.TenantId, x.LegalName });
-                e.HasIndex(x => new { x.TenantId, x.ContactEmail })
-                    .IsUnique()
-                    .HasFilter("[ContactEmail] IS NOT NULL");
-                e.HasIndex(x => new { x.TenantId, x.RegistrationCode })
-                    .IsUnique()
-                    .HasFilter("[RegistrationCode] IS NOT NULL");
-                e.HasIndex(x => new { x.TenantId, x.AccountEmail })
-                    .IsUnique()
-                    .HasFilter("[AccountEmail] IS NOT NULL");
+
+                var contactEmailIndex = e.HasIndex(x => new { x.TenantId, x.ContactEmail })
+                    .IsUnique();
+                var registrationCodeIndex = e.HasIndex(x => new { x.TenantId, x.RegistrationCode })
+                    .IsUnique();
+                var accountEmailIndex = e.HasIndex(x => new { x.TenantId, x.AccountEmail })
+                    .IsUnique();
+
+                if (isSqlServer)
+                {
+                    contactEmailIndex.HasFilter("[ContactEmail] IS NOT NULL");
+                    registrationCodeIndex.HasFilter("[RegistrationCode] IS NOT NULL");
+                    accountEmailIndex.HasFilter("[AccountEmail] IS NOT NULL");
+                }
             });
 
             // Customer

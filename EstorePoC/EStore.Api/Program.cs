@@ -5,17 +5,25 @@ using EStore.Api.Models;
 using EStore.Api.Services;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
-var connectionString = GetRequiredSqlServerConnectionString(builder.Configuration);
+var databaseSettings = GetRequiredDatabaseSettings(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlServer(connectionString);
+    if (databaseSettings.Provider == DatabaseProvider.Postgres)
+    {
+        options.UseNpgsql(databaseSettings.ConnectionString);
+    }
+    else
+    {
+        options.UseSqlServer(databaseSettings.ConnectionString);
+    }
 });
 builder.Services.AddCors(options => options.AddPolicy("any", p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
@@ -40,7 +48,7 @@ app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.Logger.LogInformation("Using SQL Server with the configured database connection.");
+app.Logger.LogInformation("Using {DatabaseProvider} with the configured database connection.", databaseSettings.ProviderName);
 
 // Tenant extractor (header "X-Tenant-Id" or query "tenantId"; default Kigali City Mall)
 app.Use(async (ctx, next) =>
@@ -1272,30 +1280,51 @@ static string SanitizeSqlServerConnectionString(string? connectionString)
             .Where(part => !part.StartsWith("Command Timeout=", StringComparison.OrdinalIgnoreCase)));
 }
 
-static string GetRequiredSqlServerConnectionString(IConfiguration configuration)
+static DatabaseSettings GetRequiredDatabaseSettings(IConfiguration configuration)
 {
-    var databaseUrl = SanitizeSqlServerConnectionString(configuration["DATABASE_URL"]);
+    var configuredProvider = configuration["DATABASE_PROVIDER"];
+    var databaseUrl = configuration["DATABASE_URL"]?.Trim();
+
     if (!string.IsNullOrWhiteSpace(databaseUrl))
     {
-        return databaseUrl;
+        if (IsPostgresDatabase(configuredProvider, databaseUrl))
+        {
+            return new DatabaseSettings(
+                DatabaseProvider.Postgres,
+                BuildPostgresConnectionString(databaseUrl));
+        }
+
+        return new DatabaseSettings(
+            DatabaseProvider.SqlServer,
+            SanitizeSqlServerConnectionString(databaseUrl));
     }
 
-    var connectionString = SanitizeSqlServerConnectionString(
-        configuration.GetConnectionString("DefaultConnection"));
+    var connectionString = configuration.GetConnectionString("DefaultConnection")?.Trim();
 
     if (!string.IsNullOrWhiteSpace(connectionString))
     {
-        if (IsLocalDbConnectionString(connectionString) && !OperatingSystem.IsWindows())
+        if (IsPostgresDatabase(configuredProvider, connectionString))
         {
-            throw new InvalidOperationException(
-                "DATABASE_URL or ConnectionStrings:DefaultConnection must point to a non-LocalDB SQL Server when running outside Windows.");
+            return new DatabaseSettings(
+                DatabaseProvider.Postgres,
+                BuildPostgresConnectionString(connectionString));
         }
 
-        return connectionString;
+        var sqlServerConnectionString = SanitizeSqlServerConnectionString(connectionString);
+
+        if (IsLocalDbConnectionString(sqlServerConnectionString) && !OperatingSystem.IsWindows())
+        {
+            throw new InvalidOperationException(
+                "DATABASE_URL or ConnectionStrings:DefaultConnection must point to a hosted SQL Server or PostgreSQL database when running outside Windows.");
+        }
+
+        return new DatabaseSettings(
+            DatabaseProvider.SqlServer,
+            sqlServerConnectionString);
     }
 
     throw new InvalidOperationException(
-        "DATABASE_URL or ConnectionStrings:DefaultConnection is required. Configure SQL Server or LocalDB on Windows.");
+        "DATABASE_URL or ConnectionStrings:DefaultConnection is required. Configure SQL Server, PostgreSQL, or LocalDB on Windows.");
 }
 
 static bool IsLocalDbConnectionString(string connectionString)
@@ -1309,6 +1338,89 @@ static bool IsLocalDbConnectionString(string connectionString)
     {
         return connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
     }
+}
+
+static bool IsPostgresDatabase(string? configuredProvider, string connectionString)
+{
+    if (!string.IsNullOrWhiteSpace(configuredProvider) &&
+        (configuredProvider.Equals("postgres", StringComparison.OrdinalIgnoreCase) ||
+         configuredProvider.Equals("postgresql", StringComparison.OrdinalIgnoreCase)))
+    {
+        return true;
+    }
+
+    return IsPostgresUrl(connectionString) || LooksLikePostgresConnectionString(connectionString);
+}
+
+static bool IsPostgresUrl(string connectionString) =>
+    connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+    connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase);
+
+static bool LooksLikePostgresConnectionString(string connectionString) =>
+    connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) &&
+    connectionString.Contains("Database=", StringComparison.OrdinalIgnoreCase) &&
+    (connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase) ||
+     connectionString.Contains("User ID=", StringComparison.OrdinalIgnoreCase));
+
+static string BuildPostgresConnectionString(string connectionString)
+{
+    if (!IsPostgresUrl(connectionString))
+    {
+        return connectionString;
+    }
+
+    var uri = new Uri(connectionString);
+    var credentials = uri.UserInfo.Split(':', 2);
+
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')),
+        Username = credentials.Length > 0 ? Uri.UnescapeDataString(credentials[0]) : string.Empty,
+        Password = credentials.Length > 1 ? Uri.UnescapeDataString(credentials[1]) : string.Empty,
+        SslMode = SslMode.Prefer
+    };
+
+    ApplyPostgresQueryOptions(uri.Query, builder);
+    return builder.ConnectionString;
+}
+
+static void ApplyPostgresQueryOptions(string query, NpgsqlConnectionStringBuilder builder)
+{
+    if (string.IsNullOrWhiteSpace(query))
+    {
+        return;
+    }
+
+    foreach (var part in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+    {
+        var keyValue = part.Split('=', 2);
+        if (keyValue.Length != 2)
+        {
+            continue;
+        }
+
+        var key = Uri.UnescapeDataString(keyValue[0]);
+        var value = Uri.UnescapeDataString(keyValue[1]);
+
+        if (key.Equals("sslmode", StringComparison.OrdinalIgnoreCase) &&
+            Enum.TryParse<SslMode>(value.Replace("-", string.Empty, StringComparison.Ordinal), true, out var sslMode))
+        {
+            builder.SslMode = sslMode;
+        }
+    }
+}
+
+enum DatabaseProvider
+{
+    SqlServer,
+    Postgres
+}
+
+sealed record DatabaseSettings(DatabaseProvider Provider, string ConnectionString)
+{
+    public string ProviderName => Provider == DatabaseProvider.Postgres ? "PostgreSQL" : "SQL Server";
 }
 
 // =======================================================================
