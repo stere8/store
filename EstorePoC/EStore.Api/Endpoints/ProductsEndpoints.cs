@@ -36,6 +36,10 @@ public static class ProductsEndpoints
         product.CategoryId = dto.CategoryId;
         product.Price = dto.Price;
         product.StockQuantity = dto.Stock;
+        if (dto.ImageUrl is not null)
+        {
+            product.ImageUrl = NormalizeImageUrl(dto.ImageUrl);
+        }
 
         await db.SaveChangesAsync();
 
@@ -99,7 +103,7 @@ public static class ProductsEndpoints
             CategoryId = dto.CategoryId,
             Price = dto.Price,
             StockQuantity = dto.Stock,
-            ImageUrl = dto.ImageUrl,
+            ImageUrl = NormalizeImageUrl(dto.ImageUrl),
             Active = true,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -147,5 +151,11 @@ public static class ProductsEndpoints
             return "Vendor not found or inactive.";
 
         return null;
+    }
+
+    private static string? NormalizeImageUrl(string? imageUrl)
+    {
+        var normalized = imageUrl?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 }
