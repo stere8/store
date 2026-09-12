@@ -40,6 +40,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>();
 builder.Services.AddSingleton<VendorAuthService>();
 builder.Services.AddScoped<PointsService>();
+builder.Services.AddHttpClient<ImageStorageService>();
 
 var app = builder.Build();
 
@@ -71,6 +72,7 @@ app.MapGroup("/api/categories").MapCategoriesEndpoints();
 app.MapGroup("/api/customers").MapCustomersEndpoints();
 app.MapGroup("/api/referrals").MapReferralsEndpoints();
 app.MapGroup("/api/points").MapPointsEndpoints();
+app.MapGroup("/api/uploads").MapUploadsEndpoints();
 app.MapGroup("/api/vendor-auth").MapVendorAuthEndpoints();
 app.MapGroup("/api/vendor-portal").MapVendorPortalEndpoints();
 
@@ -322,7 +324,7 @@ app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
         CategoryId = dto.CategoryId,
         Price = dto.Price,
         StockQuantity = dto.Stock,
-        ImageUrl = dto.ImageUrl,
+        ImageUrl = NormalizeImageUrl(dto.ImageUrl),
         Active = true,
         CreatedAt = DateTimeOffset.UtcNow
     };
@@ -362,6 +364,10 @@ app.MapPut("/api/products/{id:guid}", async (AppDbContext db, Guid id, ProductUp
     product.CategoryId = dto.CategoryId;
     product.Price = dto.Price;
     product.StockQuantity = dto.Stock;
+    if (dto.ImageUrl is not null)
+    {
+        product.ImageUrl = NormalizeImageUrl(dto.ImageUrl);
+    }
 
     await db.SaveChangesAsync();
     return Results.Ok(product);
@@ -1410,6 +1416,12 @@ static void ApplyPostgresQueryOptions(string query, NpgsqlConnectionStringBuilde
             builder.SslMode = sslMode;
         }
     }
+}
+
+static string? NormalizeImageUrl(string? imageUrl)
+{
+    var normalized = imageUrl?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
 }
 
 enum DatabaseProvider

@@ -231,7 +231,10 @@ public static class VendorPortalEndpoints
         product.CategoryId = dto.CategoryId;
         product.Price = dto.Price;
         product.StockQuantity = dto.Stock;
-        product.ImageUrl = NormalizeImageUrl(dto.ImageUrl);
+        if (dto.ImageUrl is not null)
+        {
+            product.ImageUrl = NormalizeImageUrl(dto.ImageUrl);
+        }
 
         await db.SaveChangesAsync();
 

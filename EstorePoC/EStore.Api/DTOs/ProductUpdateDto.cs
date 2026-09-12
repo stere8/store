@@ -6,5 +6,6 @@ public record ProductUpdateDto(
     string? Description,
     Guid? CategoryId,
     decimal Price,
-    int Stock
+    int Stock,
+    string? ImageUrl = null
 );
