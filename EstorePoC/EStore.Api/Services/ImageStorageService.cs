@@ -40,17 +40,17 @@ public sealed class ImageStorageService
 
         using var content = new MultipartFormDataContent
         {
-            { new StringContent(_settings.ApiKey), "api_key" },
-            { new StringContent(timestamp), "timestamp" },
-            { new StringContent(_settings.UploadFolder), "folder" },
-            { new StringContent(publicId), "public_id" },
-            { new StringContent(signature), "signature" }
+            { new StringContent(_settings.ApiKey), QuoteFormName("api_key") },
+            { new StringContent(timestamp), QuoteFormName("timestamp") },
+            { new StringContent(_settings.UploadFolder), QuoteFormName("folder") },
+            { new StringContent(publicId), QuoteFormName("public_id") },
+            { new StringContent(signature), QuoteFormName("signature") }
         };
 
         await using var stream = file.OpenReadStream();
         using var fileContent = new StreamContent(stream);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-        content.Add(fileContent, "file", Path.GetFileName(file.FileName));
+        content.Add(fileContent, QuoteFormName("file"), QuoteFormName(GetSafeFileName(file.FileName)));
 
         using var response = await _httpClient.PostAsync(_settings.UploadUrl, content, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -81,6 +81,14 @@ public sealed class ImageStorageService
         var payload = string.Join('&', parameters.Select(x => $"{x.Key}={x.Value}")) + apiSecret;
         var hash = SHA1.HashData(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static string QuoteFormName(string value) => $"\"{value.Replace("\"", string.Empty, StringComparison.Ordinal)}\"";
+
+    private static string GetSafeFileName(string fileName)
+    {
+        var safeFileName = Path.GetFileName(fileName);
+        return string.IsNullOrWhiteSpace(safeFileName) ? "upload" : safeFileName;
     }
 
     private sealed record CloudinarySettings(
