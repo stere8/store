@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace EStore.Api.Models;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum CategoryFieldType { Text, Number, Integer, Boolean, Date, Select, MultiSelect, Image }
 
 public class CategoryField

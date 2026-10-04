@@ -286,6 +286,9 @@ public sealed class MarketplaceTests
             Assert.True(schema.GetProperty("paths").TryGetProperty("/api/chat/conversations", out _));
             Assert.True(schema.GetProperty("components").GetProperty("schemas").TryGetProperty("ChatMessagePageDto", out _));
             Assert.True(schema.GetProperty("components").GetProperty("schemas").TryGetProperty("AdminSessionDto", out _));
+            var fieldTypeSchema = schema.GetProperty("components").GetProperty("schemas").GetProperty("CategoryFieldType");
+            Assert.Equal("string", fieldTypeSchema.GetProperty("type").GetString());
+            Assert.Contains(fieldTypeSchema.GetProperty("enum").EnumerateArray(), type => type.GetString() == "MultiSelect");
             Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/customers/by-username/user_customer_one")).StatusCode);
             Assert.Equal(HttpStatusCode.Unauthorized, (await customer.GetAsync("/api/chat/me")).StatusCode);
             var retainedHistory = await seller.GetFromJsonAsync<JsonElement>(
