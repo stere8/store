@@ -7,5 +7,6 @@ public record ProductUpdateDto(
     Guid? CategoryId,
     decimal Price,
     int Stock,
-    string? ImageUrl = null
+    string? ImageUrl = null,
+    Dictionary<string, System.Text.Json.JsonElement>? Attributes = null
 );

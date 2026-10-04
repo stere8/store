@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,8 +35,33 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 builder.Services.AddDataProtection();
+builder.Services.AddStoreAuthentication(builder.Configuration);
+builder.Services.AddScoped<CategoryFormService>();
+builder.Services.AddScoped<ProductCatalogService>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("admin-login", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
+        }));
+});
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT",
+        Description = "Admin JWT or Clerk customer session token. Vendor tokens may use X-Vendor-Access-Token."
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecurityScheme { Reference = new OpenApiReference
+            { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }] = []
+    });
+});
 
 // Payment strategy placeholder (currently unused)
 builder.Services.AddSingleton<IPaymentGatewayFactory, PaymentGatewayFactory>();
@@ -48,6 +75,7 @@ var app = builder.Build();
 app.UseCors("any");
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseAuthentication();
 
 app.Logger.LogInformation("Using {DatabaseProvider} with the configured database connection.", databaseSettings.ProviderName);
 
@@ -60,9 +88,13 @@ app.Use(async (ctx, next) =>
 
     var db = ctx.RequestServices.GetRequiredService<AppDbContext>();
     db.CurrentTenantId = tenant;
+    ctx.Items["TenantId"] = tenant;
 
     await next();
 });
+
+app.UseAuthorization();
+app.UseRateLimiter();
 
 // Health
 app.MapGet("/health", () => Results.Ok(new { ok = true, ts = DateTimeOffset.UtcNow }));
@@ -75,6 +107,10 @@ app.MapGroup("/api/points").MapPointsEndpoints();
 app.MapGroup("/api/uploads").MapUploadsEndpoints();
 app.MapGroup("/api/vendor-auth").MapVendorAuthEndpoints();
 app.MapGroup("/api/vendor-portal").MapVendorPortalEndpoints();
+app.MapGroup("/api/admin-auth").MapAdminAuthEndpoints();
+app.MapGroup("/api/admin").RequireAuthorization(AuthenticationSetup.Admin).MapAdminEndpoints();
+app.MapGroup("/api/vendors").MapVendorProfileEndpoints();
+app.MapGroup("/api/chat").MapChatEndpoints();
 
 // =======================================================================
 // LOCATIONS
@@ -96,7 +132,7 @@ app.MapPost("/api/locations", async (AppDbContext db, LocationCreateDto dto) =>
     db.Locations.Add(loc);
     await db.SaveChangesAsync();
     return Results.Created($"/api/locations/{loc.Id}", loc);
-});
+}).RequireAuthorization(AuthenticationSetup.Admin);
 
 // List locations for current tenant
 app.MapGet("/api/locations", async (AppDbContext db) =>
@@ -113,6 +149,12 @@ app.MapGet("/api/locations", async (AppDbContext db) =>
 app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto) =>
 {
     var tenant = db.CurrentTenantId!;
+    if (string.IsNullOrWhiteSpace(dto.DisplayName) || dto.DisplayName.Trim().Length > 160 ||
+        string.IsNullOrWhiteSpace(dto.LegalName) || dto.LegalName.Trim().Length > 180 ||
+        string.IsNullOrWhiteSpace(dto.ContactPhone) || dto.ContactPhone.Trim().Length > 32 ||
+        dto.ContactEmail?.Length > 160 ||
+        (!string.IsNullOrWhiteSpace(dto.LogoUrl) && !CategoryFormService.IsHttpsImageUrl(dto.LogoUrl)))
+        return Results.BadRequest(new { error = "Invalid vendor profile or logoUrl." });
     var contactEmail = dto.ContactEmail?.Trim().ToLowerInvariant();
     if (dto.LocationId is Guid locId)
     {
@@ -142,6 +184,7 @@ app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto
         RegistrationCode = null,
         Description = dto.Description?.Trim(),
         LocationId = dto.LocationId,
+        LogoUrl = ProductCatalogService.NormalizeImageUrl(dto.LogoUrl),
         Active = true,
         Verified = false,
         CreatedAt = DateTimeOffset.UtcNow
@@ -164,7 +207,8 @@ app.MapPost("/api/vendors/register", async (AppDbContext db, VendorCreateDto dto
         v.RegistrationCode,
         v.AccountEmail,
         v.AccountRegisteredAt,
-        v.LastLoginAt));
+        v.LastLoginAt,
+        v.LogoUrl));
 });
 
 // List vendors for current tenant
@@ -189,7 +233,8 @@ app.MapGet("/api/vendors", async (AppDbContext db) =>
             v.AccountEmail != null,
             v.AccountEmail,
             v.AccountRegisteredAt,
-            v.LastLoginAt))
+            v.LastLoginAt,
+            v.LogoUrl))
         .ToListAsync();
     return Results.Ok(list);
 });
@@ -215,13 +260,14 @@ app.MapGet("/api/vendors/{id:guid}", async (AppDbContext db, Guid id) =>
             v.RegistrationCode,
             v.AccountEmail,
             v.AccountRegisteredAt,
-            v.LastLoginAt))
+            v.LastLoginAt,
+            v.LogoUrl))
         .FirstOrDefaultAsync();
 
     return vendor is null
         ? Results.NotFound(new { error = "Vendor not found." })
         : Results.Ok(vendor);
-});
+}).RequireAuthorization(AuthenticationSetup.Admin);
 
 app.MapPatch("/api/vendors/{id:guid}/approve", async (AppDbContext db, Guid id, bool verified = true) =>
 {
@@ -262,131 +308,15 @@ app.MapPatch("/api/vendors/{id:guid}/approve", async (AppDbContext db, Guid id, 
         vendor.AccountEmail != null,
         vendor.AccountEmail,
         vendor.AccountRegisteredAt,
-        vendor.LastLoginAt));
-});
+        vendor.LastLoginAt,
+        vendor.LogoUrl));
+}).RequireAuthorization(AuthenticationSetup.Admin);
 
 // =======================================================================
 // PRODUCTS
 // =======================================================================
 
-// List active products for current tenant
-app.MapGet("/api/products", async (AppDbContext db) =>
-{
-    var tenant = db.CurrentTenantId!;
-    var list = await db.Products
-        .Where(p => p.TenantId == tenant && p.Active)
-        .OrderBy(p => p.Name)
-        .Select(p => new ProductListItemDto(
-            p.Id,
-            p.VendorId,
-            p.Vendor != null ? p.Vendor.DisplayName : null,
-            p.Name,
-            p.Description,
-            p.Price,
-            p.ImageUrl,
-            p.CategoryId,
-            p.Category != null ? p.Category.Name : null,
-            p.StockQuantity,
-            p.ReservedQuantity,
-            p.Active,
-            p.CreatedAt))
-        .ToListAsync();
-    return Results.Ok(list);
-});
-
-// Create a product
-app.MapPost("/api/products", async (AppDbContext db, ProductCreateDto dto) =>
-{
-    var tenant = db.CurrentTenantId!;
-    if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
-        return Results.BadRequest(new { error = "Invalid product payload." });
-
-    var vendorExists = await db.Vendors.AnyAsync(v =>
-        v.TenantId == tenant && v.Id == dto.VendorId && v.Active);
-    if (!vendorExists)
-        return Results.BadRequest(new { error = "Vendor not found (or inactive) in this tenant." });
-
-    if (dto.CategoryId.HasValue)
-    {
-        var categoryExists = await db.Categories.AnyAsync(c =>
-            c.TenantId == tenant && c.Id == dto.CategoryId.Value && c.Active);
-        if (!categoryExists)
-            return Results.BadRequest(new { error = "Category not found (or inactive) in this tenant." });
-    }
-
-    var p = new Product
-    {
-        Id = Guid.NewGuid(),
-        TenantId = tenant,
-        VendorId = dto.VendorId,
-        Name = dto.Name.Trim(),
-        Description = dto.Description?.Trim(),
-        CategoryId = dto.CategoryId,
-        Price = dto.Price,
-        StockQuantity = dto.Stock,
-        ImageUrl = NormalizeImageUrl(dto.ImageUrl),
-        Active = true,
-        CreatedAt = DateTimeOffset.UtcNow
-    };
-    db.Products.Add(p);
-    await db.SaveChangesAsync();
-    return Results.Created($"/api/products/{p.Id}", p);
-});
-
-app.MapPut("/api/products/{id:guid}", async (AppDbContext db, Guid id, ProductUpdateDto dto) =>
-{
-    var tenant = db.CurrentTenantId!;
-
-    var product = await db.Products
-        .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
-    if (product is null)
-        return Results.NotFound(new { error = "Product not found or inactive." });
-
-    if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
-        return Results.BadRequest(new { error = "Invalid product payload." });
-
-    var vendorExists = await db.Vendors.AnyAsync(v =>
-        v.TenantId == tenant && v.Id == dto.VendorId && v.Active);
-    if (!vendorExists)
-        return Results.BadRequest(new { error = "Vendor not found (or inactive) in this tenant." });
-
-    if (dto.CategoryId.HasValue)
-    {
-        var categoryExists = await db.Categories.AnyAsync(c =>
-            c.TenantId == tenant && c.Id == dto.CategoryId.Value && c.Active);
-        if (!categoryExists)
-            return Results.BadRequest(new { error = "Category not found (or inactive) in this tenant." });
-    }
-
-    product.VendorId = dto.VendorId;
-    product.Name = dto.Name.Trim();
-    product.Description = dto.Description?.Trim();
-    product.CategoryId = dto.CategoryId;
-    product.Price = dto.Price;
-    product.StockQuantity = dto.Stock;
-    if (dto.ImageUrl is not null)
-    {
-        product.ImageUrl = NormalizeImageUrl(dto.ImageUrl);
-    }
-
-    await db.SaveChangesAsync();
-    return Results.Ok(product);
-});
-
-app.MapDelete("/api/products/{id:guid}", async (AppDbContext db, Guid id) =>
-{
-    var tenant = db.CurrentTenantId!;
-
-    var product = await db.Products
-        .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
-    if (product is null)
-        return Results.NotFound(new { error = "Product not found or inactive." });
-
-    product.Active = false;
-    await db.SaveChangesAsync();
-
-    return Results.NoContent();
-});
+app.MapGroup("/api/products").MapProductsEndpoints();
 
 // =======================================================================
 // CARTS
@@ -628,7 +558,7 @@ app.MapGet("/api/reservations", async (AppDbContext db) =>
         .ToListAsync();
 
     return Results.Ok(reservations);
-});
+}).RequireAuthorization(AuthenticationSetup.Admin);
 
 // Get a reservation by id
 app.MapGet("/api/reservations/{reservationId:guid}", async (AppDbContext db, Guid reservationId) =>
@@ -679,7 +609,7 @@ app.MapGet("/api/vendors/{vendorId:guid}/reservations",
 
         var list = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
         return Results.Ok(list);
-    });
+    }).RequireAuthorization(AuthenticationSetup.Admin);
 
 // Update reservation status (with guard rules)
 app.MapPatch("/api/reservations/{reservationId:guid}/status",
@@ -752,7 +682,7 @@ app.MapPatch("/api/reservations/{reservationId:guid}/status",
             .FirstAsync(r => r.Id == reservationId && r.TenantId == tenant);
 
         return Results.Ok(hydratedReservation);
-    });
+    }).RequireAuthorization(AuthenticationSetup.Admin);
 
 app.MapPatch("/api/reservations/{reservationId:guid}/note",
     async (AppDbContext db, Guid reservationId, UpdateReservationNoteDto dto) =>
@@ -773,7 +703,7 @@ app.MapPatch("/api/reservations/{reservationId:guid}/note",
             .FirstAsync(r => r.Id == reservationId && r.TenantId == tenant);
 
         return Results.Ok(hydratedReservation);
-    });
+    }).RequireAuthorization(AuthenticationSetup.Admin);
 
 // =======================================================================
 // REVIEWS
@@ -859,7 +789,7 @@ app.MapPost("/api/reservations/maintenance/expire", async (AppDbContext db) =>
     }
     await db.SaveChangesAsync();
     return Results.Ok(new { expired = toExpire.Count });
-});
+}).RequireAuthorization(AuthenticationSetup.Admin);
 
 void SeedDemoCatalog(WebApplication webApp)
 {
@@ -1226,7 +1156,15 @@ void SeedDemoCatalog(WebApplication webApp)
     db.SaveChanges();
 }
 
-SeedDemoCatalog(app);
+if (builder.Configuration.GetValue<bool>("SEED_DEMO_DATA"))
+{
+    SeedDemoCatalog(app);
+}
+else
+{
+    using var scope = app.Services.CreateScope();
+    DatabaseStartup.EnsureCreated(scope.ServiceProvider.GetRequiredService<AppDbContext>(), app.Logger);
+}
 EnsureVendorAccessSetup(app);
 
 app.Run();
@@ -1418,12 +1356,6 @@ static void ApplyPostgresQueryOptions(string query, NpgsqlConnectionStringBuilde
     }
 }
 
-static string? NormalizeImageUrl(string? imageUrl)
-{
-    var normalized = imageUrl?.Trim();
-    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
-}
-
 enum DatabaseProvider
 {
     SqlServer,
@@ -1440,8 +1372,7 @@ sealed record DatabaseSettings(DatabaseProvider Provider, string ConnectionStrin
 // =======================================================================
 
 public record LocationCreateDto(string Name, string? Code, string? Description);
-public record VendorCreateDto(string DisplayName, string LegalName, string ContactPhone, string? ContactEmail, Guid? LocationId, string? Description);
-public record ProductCreateDto(Guid VendorId, string Name, string? Description, Guid? CategoryId, decimal Price, int Stock, string? ImageUrl);
+public record VendorCreateDto(string DisplayName, string LegalName, string ContactPhone, string? ContactEmail, Guid? LocationId, string? Description, string? LogoUrl = null);
 public record CreateReservationDto(Guid VendorId, string CustomerName, string CustomerPhone, string? CustomerEmail, string? CustomerNote, string? PreferredLanguage, List<CreateReservationItemDto> Items);
 public record CreateReservationItemDto(Guid ProductId, int Quantity);
 public record EnsureCartDto(Guid CustomerId);
@@ -1492,3 +1423,5 @@ public static class ProgramHelpers
         return DateTimeOffset.UtcNow.AddHours(hours);
     }
 }
+
+public partial class Program { }

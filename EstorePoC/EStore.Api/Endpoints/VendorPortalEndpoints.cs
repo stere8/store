@@ -3,6 +3,7 @@ using EStore.Api.DTOs;
 using EStore.Api.Models;
 using EStore.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace EStore.Api.Endpoints;
 
@@ -11,6 +12,7 @@ public static class VendorPortalEndpoints
     public static RouteGroupBuilder MapVendorPortalEndpoints(this RouteGroupBuilder group)
     {
         group.MapGet("/me", GetVendorSession);
+        group.MapPut("/logo", UpdateLogo);
         group.MapGet("/dashboard", GetDashboard);
         group.MapGet("/revenue", GetRevenue);
         group.MapGet("/products", ListProducts);
@@ -31,6 +33,18 @@ public static class VendorPortalEndpoints
     {
         var vendor = await VendorAuthEndpoints.ResolveVendorAsync(httpContext, db, vendorAuthService);
         return vendor is null ? Results.Unauthorized() : Results.Ok(VendorAuthEndpoints.ToSummaryDto(vendor));
+    }
+
+    private static async Task<IResult> UpdateLogo(HttpContext context, AppDbContext db,
+        VendorAuthService auth, VendorLogoDto dto)
+    {
+        var vendor = await VendorAuthEndpoints.ResolveVendorAsync(context, db, auth);
+        if (vendor is null) return Results.Unauthorized();
+        if (!string.IsNullOrWhiteSpace(dto.LogoUrl) && !CategoryFormService.IsHttpsImageUrl(dto.LogoUrl))
+            return Results.BadRequest(new { error = "logoUrl must be an HTTPS URL." });
+        vendor.LogoUrl = ProductCatalogService.NormalizeImageUrl(dto.LogoUrl);
+        await db.SaveChangesAsync();
+        return Results.Ok(VendorAuthEndpoints.ToSummaryDto(vendor));
     }
 
     private static async Task<IResult> GetDashboard(
@@ -152,7 +166,8 @@ public static class VendorPortalEndpoints
                 p.StockQuantity,
                 p.ReservedQuantity,
                 p.Active,
-                p.CreatedAt))
+                p.CreatedAt,
+                ProductCatalogService.ReadAttributes(p)))
             .ToListAsync();
 
         return Results.Ok(products);
@@ -162,6 +177,7 @@ public static class VendorPortalEndpoints
         HttpContext httpContext,
         AppDbContext db,
         VendorAuthService vendorAuthService,
+        ProductCatalogService catalog,
         VendorPortalProductWriteDto dto)
     {
         var vendor = await VendorAuthEndpoints.ResolveVendorAsync(httpContext, db, vendorAuthService);
@@ -170,11 +186,10 @@ public static class VendorPortalEndpoints
             return Results.Unauthorized();
         }
 
-        var validationError = await ValidateProductWriteAsync(db, vendor.TenantId, dto);
-        if (validationError is not null)
-        {
-            return validationError;
-        }
+        var attributes = dto.Attributes ?? [];
+        var errors = await catalog.ValidateAsync(vendor.Id, dto.Name, dto.CategoryId,
+            dto.Price, dto.Stock, dto.ImageUrl, attributes);
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
 
         var product = new Product
         {
@@ -187,6 +202,7 @@ public static class VendorPortalEndpoints
             Price = dto.Price,
             StockQuantity = dto.Stock,
             ImageUrl = NormalizeImageUrl(dto.ImageUrl),
+            AttributesJson = JsonSerializer.Serialize(attributes),
             Active = true,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -202,6 +218,7 @@ public static class VendorPortalEndpoints
         HttpContext httpContext,
         AppDbContext db,
         VendorAuthService vendorAuthService,
+        ProductCatalogService catalog,
         Guid id,
         VendorPortalProductWriteDto dto)
     {
@@ -220,17 +237,17 @@ public static class VendorPortalEndpoints
             return Results.NotFound(new { error = "Product not found." });
         }
 
-        var validationError = await ValidateProductWriteAsync(db, vendor.TenantId, dto);
-        if (validationError is not null)
-        {
-            return validationError;
-        }
+        var attributes = dto.Attributes ?? ProductCatalogService.ReadAttributes(product);
+        var errors = await catalog.ValidateAsync(vendor.Id, dto.Name, dto.CategoryId,
+            dto.Price, dto.Stock, dto.ImageUrl, attributes, product.ReservedQuantity);
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
 
         product.Name = dto.Name.Trim();
         product.Description = dto.Description?.Trim();
         product.CategoryId = dto.CategoryId;
         product.Price = dto.Price;
         product.StockQuantity = dto.Stock;
+        product.AttributesJson = JsonSerializer.Serialize(attributes);
         if (dto.ImageUrl is not null)
         {
             product.ImageUrl = NormalizeImageUrl(dto.ImageUrl);
@@ -384,31 +401,6 @@ public static class VendorPortalEndpoints
         return Results.Ok(hydrated);
     }
 
-    private static async Task<IResult?> ValidateProductWriteAsync(
-        AppDbContext db,
-        string tenantId,
-        VendorPortalProductWriteDto dto)
-    {
-        if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price < 0 || dto.Stock < 0)
-        {
-            return Results.BadRequest(new { error = "Invalid product payload." });
-        }
-
-        if (!dto.CategoryId.HasValue)
-        {
-            return null;
-        }
-
-        var categoryExists = await db.Categories.AnyAsync(c =>
-            c.TenantId == tenantId &&
-            c.Id == dto.CategoryId.Value &&
-            c.Active);
-
-        return categoryExists
-            ? null
-            : Results.BadRequest(new { error = "Category not found (or inactive) in this tenant." });
-    }
-
     private static async Task<IResult?> ApplyReservationStatusAsync(
         AppDbContext db,
         Reservation reservation,
@@ -515,7 +507,8 @@ public static class VendorPortalEndpoints
                 p.StockQuantity,
                 p.ReservedQuantity,
                 p.Active,
-                p.CreatedAt))
+                p.CreatedAt,
+                ProductCatalogService.ReadAttributes(p)))
             .FirstOrDefaultAsync();
 
     private static async Task<Reservation?> LoadVendorReservationAsync(

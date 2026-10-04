@@ -10,7 +10,7 @@
 <h1 align="center">E-Mall Rwanda</h1>
 
 <p align="center">
-  Multi-vendor commerce platform for Rwanda, with a SQL Server backend, customer storefront, admin console, and vendor portal.
+  Multi-vendor commerce platform for Rwanda, with a PostgreSQL/SQL Server backend, customer storefront, admin console, and vendor portal.
 </p>
 
 ---
@@ -18,6 +18,26 @@
 ## Project overview
 
 E-Mall Rwanda is the active marketplace stack in this workspace.
+
+### Current backend integration
+
+The deployed API is hosted on Render and uses Aiven PostgreSQL. Business data is
+empty by default; demo seeding requires `SEED_DEMO_DATA=true`. SQL Server/LocalDB
+remains an optional local-development provider.
+
+The backend now includes separate environment-configured admin authentication,
+vendor logos, subcategories, category-specific product forms, and private
+vendor/customer chat. These are backend features; the frontend applications still
+need to adopt the new authentication and endpoint contracts.
+
+- [Frontend integration guide](./docs/frontend-marketplace-integration.md)
+- [Backend environment template](./EstorePoC/EStore.Api/.env.example)
+- [Live Swagger](https://estore-api-zxuh.onrender.com/swagger/index.html)
+- [Live OpenAPI JSON](https://estore-api-zxuh.onrender.com/swagger/v1/swagger.json)
+
+The guide above supersedes older authentication, seeding, and database assumptions
+in the local setup sections below. In particular, admin operations and customer
+reconciliation now require the documented backend authentication.
 
 It is built around a single source of truth:
 
@@ -155,7 +175,9 @@ npm install
 
 ## Database setup
 
-`EStore.Api` requires a real SQL Server connection.
+`EStore.Api` requires a real database connection. For PostgreSQL, set `DATABASE_URL`
+and `DATABASE_PROVIDER=postgres` as documented in the integration guide. The
+following instructions describe the optional SQL Server local setup.
 
 The old in-memory fallback has been removed.
 
@@ -428,7 +450,8 @@ The local development stack uses this tenant id by default:
 
 - `kigali-city-mall`
 
-The API seeds demo data for that tenant, including:
+When explicitly enabled with `SEED_DEMO_DATA=true`, the API seeds demo data for
+that tenant, including:
 
 - locations
 - categories
@@ -439,7 +462,8 @@ The API seeds demo data for that tenant, including:
 - reviews
 - reservations
 
-That means a fresh local setup is not empty after the first successful API start.
+A fresh setup has no business records unless demo seeding is explicitly enabled.
+Normal restarts never clear existing data.
 
 ## Useful commands
 
@@ -577,4 +601,4 @@ If you want the shortest correct setup order, do this:
 3. Run `EStore.Api`
 4. Create `.env.local` files for `front-store`, `frontadmin`, and `frontvendor`
 5. Run the three frontends
-6. Open the local URLs and verify the seeded tenant `kigali-city-mall`
+6. Open the local URLs and verify the tenant `kigali-city-mall`; add business data or explicitly enable demo seeding

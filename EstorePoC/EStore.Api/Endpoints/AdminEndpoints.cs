@@ -1,6 +1,7 @@
 ﻿using EStore.Api.Data;
 using EStore.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using EStore.Api.Services;
 
 namespace EStore.Api.Endpoints;
 
@@ -46,16 +47,17 @@ public static class AdminEndpoints
     // -------------------------------------------------------------
     // 2️⃣ APPROVE VENDOR
     // -------------------------------------------------------------
-    private static async Task<IResult> ApproveVendor(AppDbContext db, Guid vendorId)
+    private static async Task<IResult> ApproveVendor(AppDbContext db, VendorAuthService auth, Guid vendorId)
     {
         var vendor = await db.Vendors.FirstOrDefaultAsync(v => v.Id == vendorId);
         if (vendor is null)
             return Results.NotFound(new { error = "Vendor not found." });
 
         vendor.Verified = true;
+        vendor.RegistrationCode ??= auth.CreateRegistrationCode();
         await db.SaveChangesAsync();
 
-        return Results.Ok(new { message = "Vendor approved.", vendor.Id });
+        return Results.Ok(new { message = "Vendor approved.", vendor.Id, vendor.RegistrationCode });
     }
 
     // -------------------------------------------------------------

@@ -31,7 +31,8 @@ public record ProductCreateDto(
     Guid? CategoryId,
     decimal Price,
     int Stock,
-    string? ImageUrl
+    string? ImageUrl,
+    Dictionary<string, System.Text.Json.JsonElement>? Attributes = null
 );
 
 // ------------------------------------

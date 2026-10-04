@@ -9,15 +9,15 @@ public static class CustomersEndpoints
 {
     public static RouteGroupBuilder MapCustomersEndpoints(this RouteGroupBuilder group)
     {
-        group.MapPost("/", UpsertCustomer);
-        group.MapGet("/", ListCustomers);
-        group.MapPatch("/{id:guid}/archive", ArchiveCustomer);
-        group.MapGet("/reconciliation/ignores", ListIgnoredReconciliationItems);
-        group.MapPost("/reconciliation/ignores", UpsertIgnoredReconciliationItem);
-        group.MapDelete("/reconciliation/ignores/{issueType}/{subjectKey}", DeleteIgnoredReconciliationItem);
-        group.MapDelete("/by-username/{username}", DeleteCustomerByUsername);
-        group.MapGet("/{id:guid}", GetCustomer);
-        group.MapGet("/search", SearchCustomers);
+        group.MapPost("/", UpsertCustomer).RequireAuthorization("CustomerOrAdmin");
+        group.MapGet("/", ListCustomers).RequireAuthorization(AuthenticationSetup.Admin);
+        group.MapPatch("/{id:guid}/archive", ArchiveCustomer).RequireAuthorization(AuthenticationSetup.Admin);
+        group.MapGet("/reconciliation/ignores", ListIgnoredReconciliationItems).RequireAuthorization(AuthenticationSetup.Admin);
+        group.MapPost("/reconciliation/ignores", UpsertIgnoredReconciliationItem).RequireAuthorization(AuthenticationSetup.Admin);
+        group.MapDelete("/reconciliation/ignores/{issueType}/{subjectKey}", DeleteIgnoredReconciliationItem).RequireAuthorization(AuthenticationSetup.Admin);
+        group.MapDelete("/by-username/{username}", DeleteCustomerByUsername).RequireAuthorization(AuthenticationSetup.Admin);
+        group.MapGet("/{id:guid}", GetCustomer).RequireAuthorization("CustomerOrAdmin");
+        group.MapGet("/search", SearchCustomers).RequireAuthorization(AuthenticationSetup.Admin);
 
         return group;
     }
@@ -26,12 +26,21 @@ public static class CustomersEndpoints
     // 1️⃣ Create or Update Customer (Upsert)
     // -------------------------------------------------------------
     private static async Task<IResult> UpsertCustomer(
+        HttpContext context,
         AppDbContext db,
         PointsService pointsService,
         CustomerDto dto,
         CancellationToken cancellationToken)
     {
         var tenant = db.CurrentTenantId!;
+        if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.FullName) ||
+            string.IsNullOrWhiteSpace(dto.PhoneNumber) || dto.Username.Trim().Length > 80 ||
+            dto.FullName.Trim().Length > 160 || dto.PhoneNumber.Trim().Length > 32 || dto.Email?.Length > 160)
+            return Results.BadRequest(new { error = "Invalid customer profile." });
+        var admin = await StoreIdentity.IsAdminAsync(context);
+        var subject = await StoreIdentity.CustomerSubjectAsync(context);
+        if (!admin && subject != dto.Username.Trim())
+            return Results.Forbid(authenticationSchemes: [AuthenticationSetup.Customer]);
         var username = dto.Username.Trim();
         var fullName = dto.FullName.Trim();
         var phoneNumber = dto.PhoneNumber.Trim();
@@ -42,6 +51,11 @@ public static class CustomersEndpoints
         var existingByPhone = await db.Customers
             .FirstOrDefaultAsync(c => c.TenantId == tenant && c.PhoneNumber == phoneNumber);
         var existing = existingByUsername ?? existingByPhone;
+        if (!admin && existingByPhone is not null && existingByPhone.Username != username)
+            return Results.Conflict(new { error = "This phone is linked to another profile; contact an administrator." });
+        if (await db.Customers.AnyAsync(c => c.TenantId == tenant && c.Email == email &&
+            c.Id != (existing == null ? Guid.Empty : existing.Id) && email != null))
+            return Results.Conflict(new { error = "Email is already linked to another profile." });
 
         if (existing is null)
         {
@@ -87,13 +101,17 @@ public static class CustomersEndpoints
     // -------------------------------------------------------------
     // 2️⃣ Get Customer by ID
     // -------------------------------------------------------------
-    private static async Task<IResult> GetCustomer(AppDbContext db, Guid id)
+    private static async Task<IResult> GetCustomer(HttpContext context, AppDbContext db, Guid id)
     {
         var tenant = db.CurrentTenantId!;
         var customer = await db.Customers
             .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenant);
 
-        return customer is null ? Results.NotFound() : Results.Ok(customer);
+        if (customer is null) return Results.NotFound();
+        if (!await StoreIdentity.IsAdminAsync(context) &&
+            customer.Username != await StoreIdentity.CustomerSubjectAsync(context))
+            return Results.NotFound();
+        return Results.Ok(customer);
     }
 
     // -------------------------------------------------------------
@@ -247,13 +265,16 @@ public static class CustomersEndpoints
             .AnyAsync(t => t.TenantId == tenant && t.CustomerId == customer.Id);
         var hasPointBalance = await db.CustomerPointBalances
             .AnyAsync(b => b.TenantId == tenant && b.CustomerId == customer.Id);
+        var hasChatHistory = await db.ChatConversations
+            .AnyAsync(c => c.CustomerId == customer.Id);
 
         if (!hasLinkedReservations &&
             !hasLinkedCarts &&
             !hasLinkedReviews &&
             !hasLinkedReferrals &&
             !hasPointTransactions &&
-            !hasPointBalance)
+            !hasPointBalance &&
+            !hasChatHistory)
         {
             db.Customers.Remove(customer);
             await db.SaveChangesAsync();

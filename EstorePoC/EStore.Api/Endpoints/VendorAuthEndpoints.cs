@@ -166,7 +166,8 @@ public static class VendorAuthEndpoints
             !string.IsNullOrWhiteSpace(vendor.AccountEmail),
             vendor.AccountEmail,
             vendor.AccountRegisteredAt,
-            vendor.LastLoginAt);
+            vendor.LastLoginAt,
+            vendor.LogoUrl);
 
     private static VendorSessionResponseDto ToSessionResponse(
         VendorAuthService vendorAuthService,

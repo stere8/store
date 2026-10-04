@@ -1,7 +1,9 @@
 ﻿using EStore.Api.Data;
+using System.Text.Json;
 using EStore.Api.Models;
-using Microsoft.EntityFrameworkCore;
 using EStore.Api.DTOs;
+using EStore.Api.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace EStore.Api.Endpoints;
 
@@ -9,153 +11,77 @@ public static class ProductsEndpoints
 {
     public static RouteGroupBuilder MapProductsEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("/", GetAllProducts);
-        group.MapGet("/{id:guid}", GetProductById);
-        group.MapPost("/", CreateProduct);
-        group.MapPut("/{id:guid}", UpdateProduct);
-        group.MapDelete("/{id:guid}", DeleteProduct);
+        group.MapGet("/", List).Produces<List<CatalogProductDto>>();
+        group.MapGet("/{id:guid}", Get).Produces<CatalogProductDto>();
+        group.MapPost("/", Create).RequireAuthorization(AuthenticationSetup.Admin).Produces<CatalogProductDto>(201);
+        group.MapPut("/{id:guid}", Update).RequireAuthorization(AuthenticationSetup.Admin).Produces<CatalogProductDto>();
+        group.MapDelete("/{id:guid}", Delete).RequireAuthorization(AuthenticationSetup.Admin);
         return group;
     }
-    private static async Task<IResult> UpdateProduct(AppDbContext db, Guid id, ProductUpdateDto dto)
+
+    private static IQueryable<Product> Query(AppDbContext db) =>
+        db.Products.Include(p => p.Vendor).Include(p => p.Category);
+
+    private static async Task<IResult> List(AppDbContext db) =>
+        Results.Ok((await Query(db).Where(p => p.Active).OrderBy(p => p.Name).ToListAsync())
+            .Select(ProductCatalogService.ToDto));
+
+    private static async Task<IResult> Get(AppDbContext db, Guid id)
     {
-        var tenant = db.CurrentTenantId!;
+        var product = await Query(db).FirstOrDefaultAsync(p => p.Id == id && p.Active);
+        return product is null ? Results.NotFound() : Results.Ok(ProductCatalogService.ToDto(product));
+    }
 
-        var product = await db.Products
-            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
+    private static async Task<IResult> Create(AppDbContext db, ProductCatalogService catalog, ProductCreateDto dto)
+    {
+        var attributes = dto.Attributes ?? [];
+        var errors = await catalog.ValidateAsync(dto.VendorId, dto.Name, dto.CategoryId,
+            dto.Price, dto.Stock, dto.ImageUrl, attributes);
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
+        var product = new Product
+        {
+            TenantId = db.CurrentTenantId!, VendorId = dto.VendorId, Name = dto.Name.Trim(),
+            Description = dto.Description?.Trim(), CategoryId = dto.CategoryId,
+            Price = dto.Price, StockQuantity = dto.Stock,
+            ImageUrl = ProductCatalogService.NormalizeImageUrl(dto.ImageUrl),
+            AttributesJson = JsonSerializer.Serialize(attributes)
+        };
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+        await db.Entry(product).Reference(p => p.Vendor).LoadAsync();
+        await db.Entry(product).Reference(p => p.Category).LoadAsync();
+        return Results.Created($"/api/products/{product.Id}", ProductCatalogService.ToDto(product));
+    }
 
-        if (product is null)
-            return Results.NotFound(new { error = "Product not found or inactive." });
-
-        var validationError = await ValidateProductAsync(db, tenant, dto.VendorId, dto.Name, dto.CategoryId, dto.Price, dto.Stock);
-        if (validationError is not null)
-            return Results.BadRequest(new { error = validationError });
-
+    private static async Task<IResult> Update(AppDbContext db, ProductCatalogService catalog,
+        Guid id, ProductUpdateDto dto)
+    {
+        var product = await Query(db).FirstOrDefaultAsync(p => p.Id == id && p.Active);
+        if (product is null) return Results.NotFound();
+        var attributes = dto.Attributes ?? ProductCatalogService.ReadAttributes(product);
+        var errors = await catalog.ValidateAsync(dto.VendorId, dto.Name, dto.CategoryId,
+            dto.Price, dto.Stock, dto.ImageUrl, attributes, product.ReservedQuantity);
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
         product.VendorId = dto.VendorId;
         product.Name = dto.Name.Trim();
         product.Description = dto.Description?.Trim();
         product.CategoryId = dto.CategoryId;
         product.Price = dto.Price;
         product.StockQuantity = dto.Stock;
-        if (dto.ImageUrl is not null)
-        {
-            product.ImageUrl = NormalizeImageUrl(dto.ImageUrl);
-        }
-
+        product.AttributesJson = JsonSerializer.Serialize(attributes);
+        if (dto.ImageUrl is not null) product.ImageUrl = ProductCatalogService.NormalizeImageUrl(dto.ImageUrl);
         await db.SaveChangesAsync();
-
-        return Results.Ok(product);
+        await db.Entry(product).Reference(p => p.Vendor).LoadAsync();
+        await db.Entry(product).Reference(p => p.Category).LoadAsync();
+        return Results.Ok(ProductCatalogService.ToDto(product));
     }
 
-    private static async Task<IResult> DeleteProduct(AppDbContext db, Guid id)
+    private static async Task<IResult> Delete(AppDbContext db, Guid id)
     {
-        var tenant = db.CurrentTenantId!;
-
-        var product = await db.Products
-            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant && p.Active);
-
-        if (product is null)
-            return Results.NotFound(new { error = "Product not found or inactive." });
-
+        var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id && p.Active);
+        if (product is null) return Results.NotFound();
         product.Active = false;
-
         await db.SaveChangesAsync();
         return Results.NoContent();
-    }
-
-
-    private static async Task<IResult> GetProductById(AppDbContext db, Guid id)
-    {
-        var tenant = db.CurrentTenantId!;
-
-        var product = await db.Products
-            .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenant);
-
-        return product is null ? Results.NotFound() : Results.Ok(product);
-    }
-
-    private static async Task<IResult> GetAllProducts(AppDbContext db)
-    {
-        var tenant = db.CurrentTenantId!;
-
-        var data = await db.Products
-            .Where(p => p.TenantId == tenant && p.Active)
-            .OrderBy(p => p.Name)
-            .ToListAsync();
-
-        return Results.Ok(data);
-    }
-
-    private static async Task<IResult> CreateProduct(AppDbContext db, ProductCreateDto dto)
-    {
-        var tenant = db.CurrentTenantId!;
-
-        var validationError = await ValidateProductAsync(db, tenant, dto.VendorId, dto.Name, dto.CategoryId, dto.Price, dto.Stock);
-        if (validationError is not null)
-            return Results.BadRequest(new { error = validationError });
-
-        var product = new Product
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenant,
-            VendorId = dto.VendorId,
-            Name = dto.Name.Trim(),
-            Description = dto.Description?.Trim(),
-            CategoryId = dto.CategoryId,
-            Price = dto.Price,
-            StockQuantity = dto.Stock,
-            ImageUrl = NormalizeImageUrl(dto.ImageUrl),
-            Active = true,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
-
-        return Results.Created($"/api/products/{product.Id}", product);
-    }
-
-    private static async Task<string?> ValidateProductAsync(
-        AppDbContext db,
-        string tenant,
-        Guid vendorId,
-        string name,
-        Guid? categoryId,
-        decimal price,
-        int stock)
-    {
-        if (vendorId == Guid.Empty)
-            return "VendorId is required.";
-
-        if (string.IsNullOrWhiteSpace(name))
-            return "Name is required.";
-
-        if (price < 0)
-            return "Price must be greater than or equal to zero.";
-
-        if (stock < 0)
-            return "Stock must be greater than or equal to zero.";
-
-        if (categoryId.HasValue)
-        {
-            var categoryExists = await db.Categories.AnyAsync(c =>
-                c.Id == categoryId.Value && c.TenantId == tenant && c.Active);
-
-            if (!categoryExists)
-                return "Category not found or inactive.";
-        }
-
-        var vendorExists = await db.Vendors.AnyAsync(v =>
-            v.Id == vendorId && v.TenantId == tenant && v.Active);
-
-        if (!vendorExists)
-            return "Vendor not found or inactive.";
-
-        return null;
-    }
-
-    private static string? NormalizeImageUrl(string? imageUrl)
-    {
-        var normalized = imageUrl?.Trim();
-        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 }

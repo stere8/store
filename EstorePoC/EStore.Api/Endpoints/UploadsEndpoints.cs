@@ -1,5 +1,6 @@
 using EStore.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using EStore.Api.Data;
 
 namespace EStore.Api.Endpoints;
 
@@ -23,16 +24,25 @@ public static class UploadsEndpoints
             .Produces<ImageUploadResult>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status503ServiceUnavailable)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status502BadGateway)
             .DisableAntiforgery();
 
         return group;
     }
 
     private static async Task<IResult> UploadImage(
+        HttpContext context,
+        AppDbContext db,
+        VendorAuthService vendorAuth,
         [FromForm] IFormFile? file,
         ImageStorageService imageStorageService,
         CancellationToken cancellationToken)
     {
+        if (!await StoreIdentity.IsAdminAsync(context) &&
+            await VendorAuthEndpoints.ResolveVendorAsync(context, db, vendorAuth) is null)
+            return Results.Unauthorized();
+
         if (file is null || file.Length == 0)
         {
             return Results.BadRequest(new { error = "Image file is required." });

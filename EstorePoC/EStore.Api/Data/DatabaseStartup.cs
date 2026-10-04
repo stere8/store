@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EStore.Api.Data;
 
@@ -15,6 +16,7 @@ public static class DatabaseStartup
         if (!db.Database.IsSqlServer())
         {
             db.Database.EnsureCreated();
+            if (db.Database.IsNpgsql()) ApplyPostgresMarketplaceUpgrade(db);
             return;
         }
 
@@ -35,6 +37,34 @@ public static class DatabaseStartup
 
     public static bool HasSeedProducts(AppDbContext db, string tenantId) =>
         db.Products.Any(x => x.TenantId == tenantId);
+
+    private static void ApplyPostgresMarketplaceUpgrade(AppDbContext db)
+    {
+        using var transaction = db.Database.BeginTransaction();
+        db.Database.ExecuteSqlRaw("SELECT pg_advisory_xact_lock(741920260);");
+        db.Database.ExecuteSqlRaw("""
+            CREATE TABLE IF NOT EXISTS "__EStoreSchemaVersions" (
+                "Id" character varying(80) PRIMARY KEY,
+                "AppliedAt" timestamp with time zone NOT NULL
+            );
+            """);
+        const string version = "20261004_marketplace";
+        var applied = db.Database.SqlQueryRaw<int>(
+            """SELECT COUNT(*)::integer AS "Value" FROM "__EStoreSchemaVersions" WHERE "Id" = {0}""",
+            version).Single();
+        if (applied == 0)
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Data", "PostgresMarketplace.sql");
+            using var command = db.Database.GetDbConnection().CreateCommand();
+            command.Transaction = transaction.GetDbTransaction();
+            command.CommandText = File.ReadAllText(path);
+            command.CommandTimeout = 30;
+            command.ExecuteNonQuery();
+            db.Database.ExecuteSqlRaw(
+                """INSERT INTO "__EStoreSchemaVersions" ("Id", "AppliedAt") VALUES ({0}, NOW())""", version);
+        }
+        transaction.Commit();
+    }
 
     private static void BaselineLegacyInitialMigrationIfNeeded(
         string? connectionString,

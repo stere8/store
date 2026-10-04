@@ -39,6 +39,7 @@ public class Vendor
     public string? PasswordSalt { get; set; }
 
     public string? Description { get; set; }
+    public string? LogoUrl { get; set; }
 
     public bool Active { get; set; } = true;
     public bool Verified { get; set; }

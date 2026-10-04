@@ -13,6 +13,9 @@ namespace EStore.Api.Data
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Vendor> Vendors => Set<Vendor>();
         public DbSet<Category> Categories => Set<Category>();
+        public DbSet<CategoryField> CategoryFields => Set<CategoryField>();
+        public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
+        public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<CustomerIdentityIgnore> CustomerIdentityIgnores => Set<CustomerIdentityIgnore>();
         public DbSet<Product> Products => Set<Product>();
@@ -60,6 +63,7 @@ namespace EStore.Api.Data
                 e.Property(x => x.AccountEmail).HasMaxLength(160);
                 e.Property(x => x.PasswordHash).HasMaxLength(256);
                 e.Property(x => x.PasswordSalt).HasMaxLength(128);
+                e.Property(x => x.LogoUrl).HasMaxLength(2048);
 
                 e.HasOne(x => x.Tenant).WithMany(t => t.Vendors)
                     .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
@@ -181,7 +185,50 @@ namespace EStore.Api.Data
                 e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
                 e.Property(x => x.Name).HasMaxLength(160).IsRequired();
 
-                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique()
+                    .HasFilter(isSqlServer ? "[ParentCategoryId] IS NULL" : "\"ParentCategoryId\" IS NULL");
+                e.HasIndex(x => new { x.TenantId, x.ParentCategoryId, x.Name }).IsUnique()
+                    .HasFilter(isSqlServer ? "[ParentCategoryId] IS NOT NULL" : "\"ParentCategoryId\" IS NOT NULL");
+            });
+
+            m.Entity<Category>().HasOne(x => x.ParentCategory).WithMany()
+                .HasForeignKey(x => x.ParentCategoryId).OnDelete(DeleteBehavior.Restrict);
+            m.Entity<CategoryField>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.Key).HasMaxLength(80).IsRequired();
+                e.Property(x => x.Label).HasMaxLength(160).IsRequired();
+                e.Property(x => x.Placeholder).HasMaxLength(240);
+                e.Property(x => x.DataType).HasConversion<string>().HasMaxLength(32);
+                e.Property(x => x.Min).HasPrecision(18, 4);
+                e.Property(x => x.Max).HasPrecision(18, 4);
+                e.HasOne(x => x.Category).WithMany(x => x.Fields)
+                    .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => new { x.CategoryId, x.Key }).IsUnique();
+            });
+            m.Entity<ChatConversation>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.CustomerSubject).HasMaxLength(80).IsRequired();
+                e.HasOne(x => x.Vendor).WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => new { x.TenantId, x.VendorId, x.CustomerSubject }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.CustomerSubject, x.UpdatedAt });
+            });
+            m.Entity<ChatMessage>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TenantId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.SenderRole).HasMaxLength(16).IsRequired();
+                e.Property(x => x.SenderId).HasMaxLength(80).IsRequired();
+                e.Property(x => x.Content).HasMaxLength(4000).IsRequired();
+                e.HasOne(x => x.Conversation).WithMany(x => x.Messages)
+                    .HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => new { x.ConversationId, x.SenderRole, x.SenderId, x.ClientMessageId }).IsUnique();
+                e.HasIndex(x => new { x.ConversationId, x.Id });
             });
 
             // Product
@@ -282,6 +329,9 @@ namespace EStore.Api.Data
             m.Entity<Location>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Vendor>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Category>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<CategoryField>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<ChatConversation>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
+            m.Entity<ChatMessage>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Customer>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<CustomerIdentityIgnore>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
             m.Entity<Product>().HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);

@@ -15,7 +15,8 @@ public record VendorSummaryDto(
     bool HasAccount,
     string? AccountEmail,
     DateTimeOffset? AccountRegisteredAt,
-    DateTimeOffset? LastLoginAt
+    DateTimeOffset? LastLoginAt,
+    string? LogoUrl = null
 );
 
 public record VendorDetailDto(
@@ -34,7 +35,8 @@ public record VendorDetailDto(
     string? RegistrationCode,
     string? AccountEmail,
     DateTimeOffset? AccountRegisteredAt,
-    DateTimeOffset? LastLoginAt
+    DateTimeOffset? LastLoginAt,
+    string? LogoUrl = null
 );
 
 public record VendorAccountRegistrationDto(
@@ -59,7 +61,8 @@ public record VendorPortalProductWriteDto(
     Guid? CategoryId,
     decimal Price,
     int Stock,
-    string? ImageUrl
+    string? ImageUrl,
+    Dictionary<string, System.Text.Json.JsonElement>? Attributes = null
 );
 
 public record VendorPortalReservationNoteDto(string? Note);
@@ -77,5 +80,6 @@ public record VendorPortalProductDto(
     int StockQuantity,
     int ReservedQuantity,
     bool Active,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    Dictionary<string, System.Text.Json.JsonElement>? Attributes = null
 );

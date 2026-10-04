@@ -15,6 +15,7 @@ public class Product
 
     public string? ImageUrl { get; set; }
     public Guid? CategoryId { get; set; }
+    public string AttributesJson { get; set; } = "{}";
     public bool Active { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
