@@ -267,6 +267,7 @@ public static class CustomersEndpoints
             .AnyAsync(b => b.TenantId == tenant && b.CustomerId == customer.Id);
         var hasChatHistory = await db.ChatConversations
             .AnyAsync(c => c.CustomerId == customer.Id);
+        var hasServiceBookings = await db.ServiceBookings.AnyAsync(b => b.CustomerId == customer.Id);
 
         if (!hasLinkedReservations &&
             !hasLinkedCarts &&
@@ -274,7 +275,8 @@ public static class CustomersEndpoints
             !hasLinkedReferrals &&
             !hasPointTransactions &&
             !hasPointBalance &&
-            !hasChatHistory)
+            !hasChatHistory &&
+            !hasServiceBookings)
         {
             db.Customers.Remove(customer);
             await db.SaveChangesAsync();
