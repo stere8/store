@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using EStore.Api.Data;
 using EStore.Api.Models;
 using Microsoft.AspNetCore.Hosting;
@@ -192,6 +193,7 @@ public sealed class ServiceBookingIntegrationTests
             var swagger = await anonymous.GetFromJsonAsync<JsonElement>("/swagger/v1/swagger.json");
             Assert.True(swagger.GetProperty("paths").TryGetProperty("/api/services/{id}/availability", out _));
             Assert.True(swagger.GetProperty("components").GetProperty("schemas").TryGetProperty("ServiceBookingDto", out _));
+            VerifyHandoffContracts(swagger);
             Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/customers/by-username/user_service_one_" + suffix)).StatusCode);
             var retained = await Read(await seller.GetAsync($"/api/vendor-portal/service-bookings/{bookingId}"), HttpStatusCode.OK);
             Assert.Equal("Deleted customer", retained.GetProperty("customerName").GetString());
@@ -250,6 +252,30 @@ public sealed class ServiceBookingIntegrationTests
             Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')), Username = Uri.UnescapeDataString(credentials[0]) };
         if (credentials.Length > 1) result.Password = Uri.UnescapeDataString(credentials[1]);
         return result;
+    }
+
+    private static void VerifyHandoffContracts(JsonElement swagger)
+    {
+        var docs = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../docs"));
+        foreach (var file in new[] { "services-bookings-api.md", "vendor-profile-edit-api.md", "platform-fee-api.md" })
+        {
+            var path = Path.Combine(docs, file);
+            if (!File.Exists(path)) continue; // Other feature branches are optional until combined.
+            var document = File.ReadAllText(path);
+            foreach (Match row in Regex.Matches(document, @"^\| (GET|POST|PUT|PATCH|DELETE) \| (/[^| ]+) \|", RegexOptions.Multiline))
+            {
+                var expected = Regex.Replace(row.Groups[2].Value, @"\{[^}]+\}", "{}");
+                var registered = swagger.GetProperty("paths").EnumerateObject().SingleOrDefault(p =>
+                    Regex.Replace(p.Name, @"\{[^}]+\}", "{}") == expected);
+                Assert.NotNull(registered.Name);
+                Assert.True(registered.Value.TryGetProperty(row.Groups[1].Value.ToLowerInvariant(), out _), row.Value);
+            }
+            foreach (Match json in Regex.Matches(document, "```json\\r?\\n([\\s\\S]*?)\\r?\\n```"))
+            {
+                using var parsed = JsonDocument.Parse(json.Groups[1].Value);
+                Assert.Equal(JsonValueKind.Object, parsed.RootElement.ValueKind);
+            }
+        }
     }
 
     private static async Task<(HttpClient Client, Guid Id)> Vendor(Factory factory, HttpClient admin, HttpClient anonymous, string name)
