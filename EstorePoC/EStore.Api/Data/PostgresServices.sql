@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS "ServiceBookings" (
     CONSTRAINT "CK_ServiceBookings_Price" CHECK ("Price" >= 0 AND "Price" = FLOOR("Price"))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_ServiceBookings_TenantId_CustomerSubject_ClientBookingId" ON "ServiceBookings" ("TenantId", "CustomerSubject", "ClientBookingId");
-CREATE INDEX IF NOT EXISTS "IX_ServiceBookings_TenantId_VendorId_Status_StartsAtUtc_EndsAtUtc" ON "ServiceBookings" ("TenantId", "VendorId", "Status", "StartsAtUtc", "EndsAtUtc");
+CREATE INDEX IF NOT EXISTS "IX_ServiceBookings_VendorCalendar" ON "ServiceBookings" ("TenantId", "VendorId", "Status", "StartsAtUtc", "EndsAtUtc");
 CREATE INDEX IF NOT EXISTS "IX_ServiceBookings_TenantId_CustomerId_StartsAtUtc" ON "ServiceBookings" ("TenantId", "CustomerId", "StartsAtUtc");
 CREATE INDEX IF NOT EXISTS "IX_ServiceBookings_CustomerId" ON "ServiceBookings" ("CustomerId");
 CREATE INDEX IF NOT EXISTS "IX_ServiceBookings_ServiceId" ON "ServiceBookings" ("ServiceId");

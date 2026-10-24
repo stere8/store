@@ -61,7 +61,8 @@ public partial class AppDbContext
             e.HasOne(x => x.Vendor).WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.TenantId, x.CustomerSubject, x.ClientBookingId }).IsUnique();
-            e.HasIndex(x => new { x.TenantId, x.VendorId, x.Status, x.StartsAtUtc, x.EndsAtUtc });
+            e.HasIndex(x => new { x.TenantId, x.VendorId, x.Status, x.StartsAtUtc, x.EndsAtUtc })
+                .HasDatabaseName("IX_ServiceBookings_VendorCalendar");
             e.HasIndex(x => new { x.TenantId, x.CustomerId, x.StartsAtUtc });
             e.HasQueryFilter(x => CurrentTenantId == null || x.TenantId == CurrentTenantId);
         });

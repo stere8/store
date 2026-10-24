@@ -149,7 +149,7 @@ namespace EStore.Api.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ServiceBookings_TenantId_VendorId_Status_StartsAtUtc_EndsAtUtc",
+                name: "IX_ServiceBookings_VendorCalendar",
                 table: "ServiceBookings",
                 columns: new[] { "TenantId", "VendorId", "Status", "StartsAtUtc", "EndsAtUtc" });
 

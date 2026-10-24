@@ -829,7 +829,8 @@ namespace EStore.Api.Migrations
                     b.HasIndex("TenantId", "CustomerSubject", "ClientBookingId")
                         .IsUnique();
 
-                    b.HasIndex("TenantId", "VendorId", "Status", "StartsAtUtc", "EndsAtUtc");
+                    b.HasIndex("TenantId", "VendorId", "Status", "StartsAtUtc", "EndsAtUtc")
+                        .HasDatabaseName("IX_ServiceBookings_VendorCalendar");
 
                     b.ToTable("ServiceBookings", null, t =>
                         {
