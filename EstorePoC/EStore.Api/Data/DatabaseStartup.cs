@@ -48,13 +48,15 @@ public static class DatabaseStartup
                 "AppliedAt" timestamp with time zone NOT NULL
             );
             """);
-        const string version = "20261004_marketplace";
-        var applied = db.Database.SqlQueryRaw<int>(
-            """SELECT COUNT(*)::integer AS "Value" FROM "__EStoreSchemaVersions" WHERE "Id" = {0}""",
-            version).Single();
-        if (applied == 0)
+        foreach (var (version, file) in new[] {
+            ("20261004_marketplace", "PostgresMarketplace.sql"),
+            ("20261024_services_bookings", "PostgresServices.sql") })
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Data", "PostgresMarketplace.sql");
+            var applied = db.Database.SqlQueryRaw<int>(
+                """SELECT COUNT(*)::integer AS "Value" FROM "__EStoreSchemaVersions" WHERE "Id" = {0}""",
+                version).Single();
+            if (applied > 0) continue;
+            var path = Path.Combine(AppContext.BaseDirectory, "Data", file);
             using var command = db.Database.GetDbConnection().CreateCommand();
             command.Transaction = transaction.GetDbTransaction();
             command.CommandText = File.ReadAllText(path);

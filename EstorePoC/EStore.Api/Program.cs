@@ -38,6 +38,9 @@ builder.Services.AddDataProtection();
 builder.Services.AddStoreAuthentication(builder.Configuration);
 builder.Services.AddScoped<CategoryFormService>();
 builder.Services.AddScoped<ProductCatalogService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<ServiceCatalogService>();
+builder.Services.AddScoped<ServiceBookingService>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -111,6 +114,7 @@ app.MapGroup("/api/admin-auth").MapAdminAuthEndpoints();
 app.MapGroup("/api/admin").RequireAuthorization(AuthenticationSetup.Admin).MapAdminEndpoints();
 app.MapGroup("/api/vendors").MapVendorProfileEndpoints();
 app.MapGroup("/api/chat").MapChatEndpoints();
+app.MapServiceEndpoints();
 
 // =======================================================================
 // LOCATIONS

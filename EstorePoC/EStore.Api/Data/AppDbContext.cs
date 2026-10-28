@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EStore.Api.Data
 {
-    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+    public partial class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
     {
         // Tenant scoping – set per request in Program.cs
         public string? CurrentTenantId { get; set; }
@@ -31,6 +31,7 @@ namespace EStore.Api.Data
         protected override void OnModelCreating(ModelBuilder m)
         {
             var isSqlServer = Database.ProviderName?.Contains("SqlServer", StringComparison.OrdinalIgnoreCase) == true;
+            ConfigureServiceModels(m);
 
             // Tenant
             m.Entity<Tenant>(e =>

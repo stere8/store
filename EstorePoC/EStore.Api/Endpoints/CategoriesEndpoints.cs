@@ -157,8 +157,9 @@ public static class CategoriesEndpoints
         var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id && c.Active);
         if (category is null) return Results.NotFound();
         if (await db.Categories.AnyAsync(c => c.ParentCategoryId == id && c.Active) ||
-            await db.Products.AnyAsync(p => p.CategoryId == id && p.Active))
-            return Results.Conflict(new { error = "Remove active products and subcategories before deleting this category." });
+            await db.Products.AnyAsync(p => p.CategoryId == id && p.Active) ||
+            await db.ServiceOfferings.AnyAsync(s => s.CategoryId == id && s.Active))
+            return Results.Conflict(new { error = "Remove active products, services and subcategories before deleting this category." });
         category.Active = false;
         await db.SaveChangesAsync();
         return Results.NoContent();

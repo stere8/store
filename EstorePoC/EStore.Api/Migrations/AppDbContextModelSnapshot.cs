@@ -747,6 +747,224 @@ namespace EStore.Api.Migrations
                     b.ToTable("Reviews");
                 });
 
+            modelBuilder.Entity("EStore.Api.Models.ServiceBooking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClientBookingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CustomerSubject")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EndsAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("RequestedStartsAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("StartsAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("VendorId");
+
+                    b.HasIndex("TenantId", "CustomerId", "StartsAtUtc");
+
+                    b.HasIndex("TenantId", "CustomerSubject", "ClientBookingId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "VendorId", "Status", "StartsAtUtc", "EndsAtUtc")
+                        .HasDatabaseName("IX_ServiceBookings_VendorCalendar");
+
+                    b.ToTable("ServiceBookings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ServiceBookings_Duration", "\"DurationMinutes\" BETWEEN 5 AND 480");
+
+                            t.HasCheckConstraint("CK_ServiceBookings_Price", "\"Price\" >= 0 AND \"Price\" = FLOOR(\"Price\")");
+
+                            t.HasCheckConstraint("CK_ServiceBookings_Status", "\"Status\" IN ('Pending','Confirmed','Cancelled','Rejected','Completed','NoShow')");
+
+                            t.HasCheckConstraint("CK_ServiceBookings_Times", "\"EndsAtUtc\" > \"StartsAtUtc\"");
+                        });
+                });
+
+            modelBuilder.Entity("EStore.Api.Models.ServiceOffering", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AttributesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("BookingWindowDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(10000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<int>("MinimumNoticeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("SlotIntervalMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("VendorId");
+
+                    b.HasIndex("TenantId", "VendorId", "Active");
+
+                    b.ToTable("Services", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Services_Duration", "\"DurationMinutes\" BETWEEN 5 AND 480");
+
+                            t.HasCheckConstraint("CK_Services_Interval", "\"SlotIntervalMinutes\" BETWEEN 5 AND 120");
+
+                            t.HasCheckConstraint("CK_Services_Notice", "\"MinimumNoticeMinutes\" BETWEEN 0 AND 43200");
+
+                            t.HasCheckConstraint("CK_Services_Price", "\"Price\" >= 0 AND \"Price\" = FLOOR(\"Price\")");
+
+                            t.HasCheckConstraint("CK_Services_Window", "\"BookingWindowDays\" BETWEEN 1 AND 365");
+                        });
+                });
+
+            modelBuilder.Entity("EStore.Api.Models.ServiceSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BlockedDatesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("WindowsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VendorId");
+
+                    b.HasIndex("TenantId", "VendorId")
+                        .IsUnique();
+
+                    b.ToTable("ServiceSchedules", (string)null);
+                });
+
             modelBuilder.Entity("EStore.Api.Models.ShoppingCart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1195,6 +1413,63 @@ namespace EStore.Api.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("EStore.Api.Models.ServiceBooking", b =>
+                {
+                    b.HasOne("EStore.Api.Models.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EStore.Api.Models.ServiceOffering", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EStore.Api.Models.Vendor", "Vendor")
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Service");
+
+                    b.Navigation("Vendor");
+                });
+
+            modelBuilder.Entity("EStore.Api.Models.ServiceOffering", b =>
+                {
+                    b.HasOne("EStore.Api.Models.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EStore.Api.Models.Vendor", "Vendor")
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Vendor");
+                });
+
+            modelBuilder.Entity("EStore.Api.Models.ServiceSchedule", b =>
+                {
+                    b.HasOne("EStore.Api.Models.Vendor", "Vendor")
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Vendor");
                 });
 
             modelBuilder.Entity("EStore.Api.Models.ShoppingCart", b =>

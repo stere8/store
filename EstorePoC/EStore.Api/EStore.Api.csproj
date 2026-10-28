@@ -22,5 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Data/PostgresMarketplace.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Data/PostgresServices.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
