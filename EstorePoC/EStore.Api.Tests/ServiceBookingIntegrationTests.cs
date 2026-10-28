@@ -257,7 +257,7 @@ public sealed class ServiceBookingIntegrationTests
     private static void VerifyHandoffContracts(JsonElement swagger)
     {
         var docs = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../docs"));
-        foreach (var file in new[] { "services-bookings-api.md", "vendor-profile-edit-api.md", "platform-fee-api.md" })
+        foreach (var file in new[] { "services-bookings-api.md", "vendor-profile-edit-api.md", "service-fee-api.md" })
         {
             var path = Path.Combine(docs, file);
             if (!File.Exists(path)) continue; // Other feature branches are optional until combined.

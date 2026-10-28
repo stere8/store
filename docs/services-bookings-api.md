@@ -6,7 +6,7 @@ Services are separate offerings, not products with a special pickup time. A vend
 
 New tables: Services, ServiceSchedules, ServiceBookings. Products, stock, shopping carts, pickup reservations, their expiry, and existing image URLs are not migrated or repurposed. The PostgreSQL upgrade is additive, versioned and transactional. It creates the three new tables/indexes once; restarting does not clear records or reseed demo data. SQL Server has a matching EF migration.
 
-This is appointment scheduling, not a payment gateway or medical-record system. Do not store medical diagnoses/treatment details in notes or category fields. No fees are automatically charged or included. The independent platform-fee quote can be used later, but does not affect saved service prices or bookings.
+This is appointment scheduling, not a payment gateway or medical-record system. Do not store medical diagnoses/treatment details in notes or category fields. No fees are automatically charged or included in individual appointments. The service fee is 1% of a complete cart, calculated once, not a separate charge on each service offering or vendor. Cart quotes do not change saved service prices or bookings.
 
 ## Resource model
 
