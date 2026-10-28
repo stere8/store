@@ -104,7 +104,7 @@ app.MapGroup("/api/categories").MapCategoriesEndpoints();
 app.MapGroup("/api/customers").MapCustomersEndpoints();
 app.MapGroup("/api/referrals").MapReferralsEndpoints();
 app.MapGroup("/api/points").MapPointsEndpoints();
-app.MapGroup("/api/platform-fees").MapPlatformFeeEndpoints();
+app.MapServiceFeeEndpoints();
 app.MapGroup("/api/uploads").MapUploadsEndpoints();
 app.MapGroup("/api/vendor-auth").MapVendorAuthEndpoints();
 app.MapGroup("/api/vendor-portal").MapVendorPortalEndpoints();
