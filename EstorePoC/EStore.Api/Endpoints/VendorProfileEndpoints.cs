@@ -9,6 +9,9 @@ public static class VendorProfileEndpoints
 {
     public static RouteGroupBuilder MapVendorProfileEndpoints(this RouteGroupBuilder group)
     {
+        group.MapPut("/{id:guid}", VendorProfileService.Update)
+            .RequireAuthorization(AuthenticationSetup.Admin).Produces<VendorSummaryDto>()
+            .ProducesValidationProblem().Produces(401).Produces(403).Produces(404).Produces(409);
         group.MapGet("/{id:guid}/profile", async (AppDbContext db, Guid id) =>
         {
             var vendor = await db.Vendors.Where(v => v.Id == id && v.Active)
